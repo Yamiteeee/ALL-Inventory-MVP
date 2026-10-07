@@ -23,7 +23,7 @@
   --radius-xl: 24px;
 }
 
-/* 1. LOCK FULL VIEWPORT HEIGHT (Stops the outer browser window from scrolling) */
+/* 1. LOCK FULL VIEWPORT HEIGHT (Desktop default) */
 .screen-wrapper {
   height: 100vh;
   width: 100%;
@@ -33,22 +33,22 @@
   background-color: var(--bg-canvas);
   box-sizing: border-box;
   padding: 1.5rem;
-  overflow: hidden !important; /* Critical: locks page */
+  overflow: hidden !important;
 }
 
-/* 2. CENTERED DASHBOARD SHELL WITH FIXED HEIGHT CONTAINER */
+/* 2. CENTERED DASHBOARD SHELL */
 .minimal-shell {
   width: 100%;
   max-width: 1380px;
   height: 100%;
   max-height: 94vh;
   display: flex;
-  flex-direction: column; /* Stacks header, banner, filter, and scroll area */
+  flex-direction: column;
   color: var(--text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden; /* Prevents overflow escaping */
+  overflow: hidden;
 }
 
 /* Header (Fixed) */
@@ -62,7 +62,7 @@
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   margin-bottom: 1rem;
-  flex-shrink: 0; /* Keeps size fixed */
+  flex-shrink: 0;
 }
 
 .eyebrow {
@@ -113,6 +113,7 @@
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   line-height: 1;
   box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 .btn-action-primary {
@@ -164,7 +165,7 @@
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   margin-bottom: 1rem;
-  flex-shrink: 0; /* Keeps size fixed */
+  flex-shrink: 0;
 }
 
 .selector-field {
@@ -243,7 +244,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  flex-shrink: 0; /* Keeps size fixed */
+  flex-shrink: 0;
 }
 
 .search-box {
@@ -313,6 +314,7 @@
   color: #52525b;
   cursor: pointer;
   transition: all 0.15s ease;
+  touch-action: manipulation;
 }
 
 .segment-btn:hover {
@@ -321,17 +323,16 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* 3. DEDICATED SCROLLABLE CATALOG CONTAINER (Only this scrolls) */
+/* 3. DEDICATED SCROLLABLE CATALOG CONTAINER */
 .scrollable-catalog-viewport {
-  flex: 1; /* Takes all remaining vertical space */
-  min-height: 0; /* Critical flexbox reset so overflow works */
-  overflow-y: auto !important; /* Forces scroll here */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
   overflow-x: hidden;
-  padding-right: 0.4rem; /* Buffer for scrollbar */
+  padding-right: 0.4rem;
   padding-bottom: 1rem;
 }
 
-/* Clean Apple Scrollbar for Viewport */
 .scrollable-catalog-viewport::-webkit-scrollbar {
   width: 6px;
 }
@@ -375,6 +376,7 @@
   background: #ffffff;
   cursor: pointer;
   user-select: none;
+  touch-action: manipulation;
 }
 
 .node-header:hover {
@@ -397,6 +399,7 @@
   border-radius: 9999px;
   background: #f4f4f5;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .node-header:hover .chevron-wrap {
@@ -642,4 +645,324 @@
 .empty-state p {
   margin: 0 0 1rem 0;
   font-size: 0.92rem;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN LAYER
+   ========================================================= */
+
+@supports (height: 100dvh) {
+  .screen-wrapper {
+    height: 100dvh;
+  }
+}
+
+/* Tablet (<= 1024px) */
+@media (max-width: 1024px) {
+  .search-box {
+    width: 320px;
+  }
+  .node-trail {
+    gap: 1rem;
+  }
+  .kpi-group {
+    gap: 1.25rem;
+  }
+}
+
+/* Mobile & Phablet (<= 768px) */
+@media (max-width: 768px) {
+  .screen-wrapper {
+    height: auto;
+    min-height: 100dvh;
+    align-items: flex-start;
+    overflow: visible !important;
+    padding: 0.75rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+
+  .minimal-shell {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .scrollable-catalog-viewport {
+    flex: none;
+    overflow: visible !important;
+    padding-right: 0;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Header */
+  .top-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1.1rem;
+    border-radius: 20px;
+    margin-bottom: 0.75rem;
+  }
+
+  .page-title {
+    font-size: 1.45rem;
+  }
+
+  .nav-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .btn {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.82rem;
+    min-height: 44px;
+  }
+
+  .btn-icon {
+    min-width: 44px;
+  }
+
+  /* Overview Bar */
+  .overview-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.9rem;
+    padding: 1rem 1.1rem;
+    border-radius: 20px;
+    margin-bottom: 0.75rem;
+  }
+
+  .selector-field {
+    justify-content: space-between;
+  }
+
+  .select-wrapper {
+    flex: 1;
+  }
+
+  .minimal-select {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px; /* Prevents auto-zoom in iOS Safari */
+  }
+
+  .kpi-group {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border-subtle);
+    gap: 0.5rem;
+  }
+
+  .kpi-divider {
+    display: none;
+  }
+
+  .kpi-item {
+    align-items: center;
+    text-align: center;
+    flex: 1;
+  }
+
+  .kpi-label {
+    font-size: 0.62rem;
+  }
+
+  .kpi-num {
+    font-size: 1.1rem;
+  }
+
+  /* Filters */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .minimal-input {
+    min-height: 46px;
+    font-size: 16px; /* Prevents auto-zoom in iOS Safari */
+  }
+
+  .segmented-control {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .segment-btn {
+    padding: 0.55rem 0.95rem;
+    min-height: 40px;
+  }
+
+  /* Parent Cards */
+  .tree-container {
+    gap: 0.85rem;
+  }
+
+  .parent-node {
+    border-radius: 20px;
+  }
+
+  .node-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .node-lead {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .chevron-wrap {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tag-row {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .node-trail {
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .node-body {
+    padding: 0.25rem 0.75rem 0.75rem;
+  }
+
+  /* Card Transformation: Table Rows -> Cards */
+  .table-container {
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .minimal-table,
+  .minimal-table tbody,
+  .minimal-table tr,
+  .minimal-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .minimal-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .minimal-table tbody tr {
+    background: #ffffff;
+    border: 1px solid var(--border-light);
+    border-radius: 18px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  }
+
+  .minimal-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .minimal-table td {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: stretch;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .minimal-table tbody tr:last-child td,
+  .minimal-table td:last-child {
+    border-bottom: none;
+  }
+
+  .minimal-table td::before {
+    content: attr(data-label);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  /* Pair simple cells horizontally to reduce vertical bloat */
+  .minimal-table td.td-sku,
+  .minimal-table td.td-cost,
+  .minimal-table td.td-status {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .minimal-table td.td-sku::before,
+  .minimal-table td.td-cost::before,
+  .minimal-table td.td-status::before {
+    margin-bottom: 0;
+  }
+
+  .cost-cell {
+    white-space: normal;
+  }
+
+  .empty-state {
+    padding: 3rem 1.25rem;
+    border-radius: 20px;
+  }
+}
+
+/* Small Phones (<= 480px) */
+@media (max-width: 480px) {
+  .page-subtitle {
+    display: none;
+  }
+
+  .nav-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  /* Move sign-out to full-width bottom bar or pill in header */
+  .nav-controls .btn-icon {
+    grid-column: span 2;
+    width: 100%;
+    border-radius: 9999px !important;
+  }
+
+  .btn-label {
+    font-size: 0.78rem;
+  }
+
+  .vendor-label {
+    font-size: 0.76rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }

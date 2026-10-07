@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { SALES_UI } from './salesConfig'
@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   CreditCard,
   UserCheck,
+  ListOrdered,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -36,9 +37,25 @@ const specialReason = ref('')
 
 const successMessage = ref('')
 const errorMessage = ref('')
+const mobileActiveTab = ref('pos') // 'pos' | 'ledger'
+
+// Viewport tracking for responsive dropdown string formatting
+const isMobile = ref(false)
+
+function handleResize() {
+  isMobile.value = window.innerWidth <= 768
+}
+
+onMounted(() => {
+  handleResize()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 
 function goBackToCatalog() {
-  // If user navigated directly or history stack is minimal, fallback explicitly
   if (window.history.state?.back) {
     router.back()
   } else {
@@ -93,6 +110,24 @@ const finalTotal = computed(() => {
   return Math.max(0, subtotal.value - totalDiscountAmount.value)
 })
 
+/**
+ * Returns full format on desktop, truncated concise format on mobile
+ */
+function formatVariantOptionLabel(p) {
+  // Desktop: original complete label
+  if (!isMobile.value) {
+    return `${p.fullName} — ₱${p.baseCost.toFixed(2)} / ${p.uom.level1.unit}`
+  }
+
+  // Mobile: concise label to keep native picker within screen width
+  const brand = p.brand ? `${p.brand} · ` : ''
+  const spec = p.flavor || p.color || p.sizeCapacity || ''
+  const baseName = p.productName || p.autoName || p.fullName || ''
+  const label = spec ? `${brand}${baseName} (${spec})` : `${brand}${baseName}`
+
+  return label.length > 36 ? `${label.slice(0, 34)}…` : label
+}
+
 function handleCompleteSale() {
   errorMessage.value = ''
   successMessage.value = ''
@@ -134,6 +169,10 @@ function handleCompleteSale() {
     specialDiscount.value = 0
     specialReason.value = ''
     shouldUpdateProfileDiscount.value = false
+
+    if (window.innerWidth <= 768) {
+      mobileActiveTab.value = 'ledger'
+    }
   } catch (err) {
     errorMessage.value = err.message
   }
@@ -163,19 +202,45 @@ function handleCompleteSale() {
       </header>
 
       <!-- Feedback Alerts -->
-      <div v-if="successMessage" class="alert alert-success">
-        <CheckCircle2 :size="16" />
-        <span>{{ successMessage }}</span>
-      </div>
-      <div v-if="errorMessage" class="alert alert-error">
-        <AlertCircle :size="16" />
-        <span>{{ errorMessage }}</span>
+      <transition name="fade-alert">
+        <div v-if="successMessage" class="alert alert-success">
+          <CheckCircle2 :size="16" />
+          <span>{{ successMessage }}</span>
+        </div>
+      </transition>
+      <transition name="fade-alert">
+        <div v-if="errorMessage" class="alert alert-error">
+          <AlertCircle :size="16" />
+          <span>{{ errorMessage }}</span>
+        </div>
+      </transition>
+
+      <!-- Mobile Tab Switcher (Visible only <= 768px) -->
+      <div class="mobile-segmented-bar">
+        <button
+          type="button"
+          class="segment-choice"
+          :class="{ active: mobileActiveTab === 'pos' }"
+          @click="mobileActiveTab = 'pos'"
+        >
+          <CreditCard :size="14" />
+          <span>Point of Sale</span>
+        </button>
+        <button
+          type="button"
+          class="segment-choice"
+          :class="{ active: mobileActiveTab === 'ledger' }"
+          @click="mobileActiveTab = 'ledger'"
+        >
+          <ListOrdered :size="14" />
+          <span>Ledger ({{ store.salesHistory?.length || 0 }})</span>
+        </button>
       </div>
 
-      <!-- Main Two-Column Viewport -->
-      <div class="sales-workspace">
+      <!-- Main Viewport Workspace -->
+      <div class="sales-workspace" :data-active-tab="mobileActiveTab">
         <!-- Left: Checkout Configurator Form -->
-        <section class="checkout-card">
+        <section class="checkout-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'pos' }">
           <div class="card-header">
             <span class="card-title">{{ SALES_UI.form.title }}</span>
             <span class="step-pill">{{ SALES_UI.form.step }}</span>
@@ -184,9 +249,9 @@ function handleCompleteSale() {
           <form @submit.prevent="handleCompleteSale" class="sales-form">
             <div class="form-grid-2">
               <div class="input-group">
-                <label>{{ SALES_UI.form.branchLabel }}</label>
+                <label for="pos-branch-select">{{ SALES_UI.form.branchLabel }}</label>
                 <div class="select-wrapper">
-                  <select v-model="selectedBranch" class="form-control">
+                  <select id="pos-branch-select" v-model="selectedBranch" class="form-control">
                     <option v-for="b in store.branches" :key="b.id" :value="b.id">
                       {{ b.name }}
                     </option>
@@ -206,26 +271,42 @@ function handleCompleteSale() {
             </div>
 
             <div class="input-group">
-              <label>{{ SALES_UI.form.variantLabel }}</label>
+              <label for="pos-variant-select">{{ SALES_UI.form.variantLabel }}</label>
               <div class="select-wrapper">
-                <select v-model="selectedVariantId" class="form-control">
+                <select id="pos-variant-select" v-model="selectedVariantId" class="form-control">
                   <option v-for="p in store.flatVariants" :key="p.id" :value="p.id">
-                    {{ p.fullName }} — ₱{{ p.baseCost.toFixed(2) }} / {{ p.uom.level1.unit }}
+                    {{ formatVariantOptionLabel(p) }}
                   </option>
                 </select>
+              </div>
+
+              <!-- Only displayed on mobile via CSS -->
+              <div v-if="currentVariant" class="selected-variant-preview mobile-only">
+                <div class="preview-title">{{ currentVariant.fullName }}</div>
+                <div class="preview-meta">
+                  <span class="preview-tag tag-mono"
+                    >₱{{ currentVariant.baseCost.toFixed(2) }} /
+                    {{ currentVariant.uom.level1.unit }}</span
+                  >
+                  <span class="preview-tag">{{ currentVariant.category }}</span>
+                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">{{
+                    currentVariant.sizeCapacity
+                  }}</span>
+                </div>
               </div>
             </div>
 
             <div class="input-group">
-              <label
-                >{{ SALES_UI.form.qtyLabel }} ({{
-                  currentVariant?.uom.level1.unit || 'units'
-                }})</label
-              >
+              <label for="pos-qty-input">
+                {{ SALES_UI.form.qtyLabel }} ({{ currentVariant?.uom.level1.unit || 'units' }})
+              </label>
               <input
+                id="pos-qty-input"
                 v-model.number="quantity"
                 type="number"
                 min="1"
+                step="1"
+                inputmode="numeric"
                 :max="availableStock"
                 class="form-control"
                 required
@@ -264,7 +345,7 @@ function handleCompleteSale() {
                     class="form-control"
                   >
                     <option v-for="c in store.customers" :key="c.id" :value="c.id">
-                      {{ c.name }} ({{ c.tier }} · {{ c.defaultDiscount }}% Default)
+                      {{ c.name }} ({{ c.tier }} · {{ c.defaultDiscount }}%)
                     </option>
                   </select>
                 </div>
@@ -298,6 +379,8 @@ function handleCompleteSale() {
                     type="number"
                     min="0"
                     max="100"
+                    step="1"
+                    inputmode="numeric"
                     class="form-control"
                   />
                   <div
@@ -321,6 +404,8 @@ function handleCompleteSale() {
                     type="number"
                     min="0"
                     max="100"
+                    step="1"
+                    inputmode="numeric"
                     class="form-control"
                   />
                 </div>
@@ -362,12 +447,12 @@ function handleCompleteSale() {
         </section>
 
         <!-- Right: Live Session Ledger -->
-        <section class="ledger-card">
+        <section class="ledger-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'ledger' }">
           <div class="card-header">
             <span class="card-title">{{ SALES_UI.ledger.title }}</span>
-            <span class="counter-badge"
-              >{{ store.salesHistory?.length || 0 }} {{ SALES_UI.ledger.loggedSuffix }}</span
-            >
+            <span class="counter-badge">
+              {{ store.salesHistory?.length || 0 }} {{ SALES_UI.ledger.loggedSuffix }}
+            </span>
           </div>
 
           <div class="scrollable-ledger">

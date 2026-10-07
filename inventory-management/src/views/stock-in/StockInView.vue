@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { STOCK_IN_UI } from './stockInConfig'
@@ -14,6 +14,7 @@ import {
   Calendar,
   FileText,
   Boxes,
+  ListOrdered,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -26,6 +27,23 @@ const quantity = ref(10)
 const batchExpiry = ref('')
 const supplierNote = ref('')
 const successMessage = ref('')
+const mobileActiveTab = ref('form') // 'form' | 'logs' for small viewports
+
+// Viewport tracking for dynamic dropdown formatting
+const isMobile = ref(false)
+
+function handleResize() {
+  isMobile.value = window.innerWidth <= 768
+}
+
+onMounted(() => {
+  handleResize()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 
 function goBackToCatalog() {
   if (window.history.state?.back) {
@@ -54,6 +72,24 @@ const calculatedBaseUnits = computed(() => {
   return 0
 })
 
+/**
+ * Returns full format on desktop, truncated concise format on mobile
+ */
+function formatVariantOptionLabel(item) {
+  // Desktop: original complete label
+  if (!isMobile.value) {
+    return `[${item.category}] ${item.fullName}`
+  }
+
+  // Mobile: truncated concise label to prevent picker overflow
+  const brand = item.brand ? `${item.brand} · ` : ''
+  const spec = item.flavor || item.color || item.sizeCapacity || ''
+  const baseName = item.productName || item.autoName || item.fullName || ''
+  const label = spec ? `${brand}${baseName} (${spec})` : `${brand}${baseName}`
+
+  return label.length > 42 ? `${label.slice(0, 40)}…` : label
+}
+
 function handleSubmitStockIn() {
   if (quantity.value <= 0 || !currentVariant.value) return
 
@@ -69,6 +105,10 @@ function handleSubmitStockIn() {
   successMessage.value = `Logged delivery for ${currentVariant.value.fullName} (+${calculatedBaseUnits.value} ${currentVariant.value.uom.level1.unit})`
   supplierNote.value = ''
   batchExpiry.value = ''
+
+  if (window.innerWidth <= 768) {
+    mobileActiveTab.value = 'logs'
+  }
 
   setTimeout(() => {
     successMessage.value = ''
@@ -101,15 +141,39 @@ function handleSubmitStockIn() {
       </header>
 
       <!-- Feedback Alert -->
-      <div v-if="successMessage" class="alert alert-success">
-        <CheckCircle2 :size="16" />
-        <span>{{ successMessage }}</span>
+      <transition name="fade-alert">
+        <div v-if="successMessage" class="alert alert-success">
+          <CheckCircle2 :size="16" />
+          <span>{{ successMessage }}</span>
+        </div>
+      </transition>
+
+      <!-- Mobile Tab Switcher (Visible only <= 768px) -->
+      <div class="mobile-segmented-bar">
+        <button
+          type="button"
+          class="segment-choice"
+          :class="{ active: mobileActiveTab === 'form' }"
+          @click="mobileActiveTab = 'form'"
+        >
+          <PackagePlus :size="14" />
+          <span>Intake Form</span>
+        </button>
+        <button
+          type="button"
+          class="segment-choice"
+          :class="{ active: mobileActiveTab === 'logs' }"
+          @click="mobileActiveTab = 'logs'"
+        >
+          <ListOrdered :size="14" />
+          <span>Recent Activity ({{ store.stockInHistory?.length || 0 }})</span>
+        </button>
       </div>
 
-      <!-- Main Two-Column Viewport -->
-      <div class="stockin-workspace">
+      <!-- Main Two-Column Viewport Workspace -->
+      <div class="stockin-workspace" :data-active-tab="mobileActiveTab">
         <!-- Left Column: Intake Entry Form -->
-        <section class="entry-card">
+        <section class="entry-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'form' }">
           <div class="card-header">
             <span class="card-title">{{ STOCK_IN_UI.form.title }}</span>
             <span class="step-pill">{{ STOCK_IN_UI.form.step }}</span>
@@ -117,9 +181,14 @@ function handleSubmitStockIn() {
 
           <form @submit.prevent="handleSubmitStockIn" class="stock-form">
             <div class="input-group">
-              <label>{{ STOCK_IN_UI.form.branchLabel }}</label>
+              <label for="stock-branch-select">{{ STOCK_IN_UI.form.branchLabel }}</label>
               <div class="select-wrapper">
-                <select v-model="selectedBranch" class="form-control" required>
+                <select
+                  id="stock-branch-select"
+                  v-model="selectedBranch"
+                  class="form-control"
+                  required
+                >
                   <option v-for="b in store.branches" :key="b.id" :value="b.id">
                     {{ b.name }}
                   </option>
@@ -128,23 +197,40 @@ function handleSubmitStockIn() {
             </div>
 
             <div class="input-group">
-              <label>{{ STOCK_IN_UI.form.variantLabel }}</label>
+              <label for="stock-variant-select">{{ STOCK_IN_UI.form.variantLabel }}</label>
               <div class="select-wrapper">
-                <select v-model="selectedVariantId" class="form-control" required>
+                <select
+                  id="stock-variant-select"
+                  v-model="selectedVariantId"
+                  class="form-control"
+                  required
+                >
                   <option v-for="item in store.flatVariants" :key="item.id" :value="item.id">
-                    [{{ item.category }}] {{ item.fullName }}
+                    {{ formatVariantOptionLabel(item) }}
                   </option>
                 </select>
+              </div>
+
+              <!-- Only displayed on mobile via CSS -->
+              <div v-if="currentVariant" class="selected-variant-preview mobile-only">
+                <div class="preview-title">{{ currentVariant.fullName }}</div>
+                <div class="preview-meta">
+                  <span class="preview-tag tag-mono">{{ currentVariant.sku }}</span>
+                  <span class="preview-tag">{{ currentVariant.category }}</span>
+                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">{{
+                    currentVariant.sizeCapacity
+                  }}</span>
+                </div>
               </div>
             </div>
 
             <div class="input-group" v-if="currentVariant">
-              <label class="label-with-icon">
+              <label for="stock-tier-select" class="label-with-icon">
                 <Layers :size="12" />
                 <span>{{ STOCK_IN_UI.form.tierLabel }}</span>
               </label>
               <div class="select-wrapper">
-                <select v-model="uomTier" class="form-control">
+                <select id="stock-tier-select" v-model="uomTier" class="form-control">
                   <option value="level1">
                     Level 1: Primary Unit (1 {{ currentVariant.uom.level1.unit }})
                   </option>
@@ -162,7 +248,7 @@ function handleSubmitStockIn() {
 
             <div class="input-group">
               <div class="label-row">
-                <label>{{ STOCK_IN_UI.form.qtyLabel }}</label>
+                <label for="stock-quantity-input">{{ STOCK_IN_UI.form.qtyLabel }}</label>
                 <span v-if="currentVariant" class="conversion-pill">
                   {{
                     STOCK_IN_UI.form.conversionTag(
@@ -173,9 +259,12 @@ function handleSubmitStockIn() {
                 </span>
               </div>
               <input
+                id="stock-quantity-input"
                 v-model.number="quantity"
                 type="number"
                 min="1"
+                step="1"
+                inputmode="numeric"
                 class="form-control"
                 required
               />
@@ -184,20 +273,28 @@ function handleSubmitStockIn() {
             <div class="section-divider"></div>
 
             <div v-if="currentVariant?.isPerishable" class="input-group">
-              <label class="label-with-icon">
+              <label for="stock-expiry-input" class="label-with-icon">
                 <Calendar :size="12" />
                 <span>{{ STOCK_IN_UI.form.expiryLabel }}</span>
               </label>
-              <input v-model="batchExpiry" type="date" class="form-control" required />
+              <input
+                id="stock-expiry-input"
+                v-model="batchExpiry"
+                type="date"
+                class="form-control"
+                required
+              />
             </div>
 
             <div class="input-group">
-              <label class="label-with-icon">
+              <label for="stock-note-input" class="label-with-icon">
                 <FileText :size="12" />
                 <span>{{ STOCK_IN_UI.form.poLabel }}</span>
               </label>
               <input
+                id="stock-note-input"
                 v-model="supplierNote"
+                type="text"
                 class="form-control"
                 :placeholder="STOCK_IN_UI.form.poPlaceholder"
               />
@@ -211,12 +308,12 @@ function handleSubmitStockIn() {
         </section>
 
         <!-- Right Column: Receiving History Log -->
-        <section class="logs-card">
+        <section class="logs-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'logs' }">
           <div class="card-header">
             <span class="card-title">{{ STOCK_IN_UI.logs.title }}</span>
-            <span class="counter-badge"
-              >{{ store.stockInHistory?.length || 0 }} {{ STOCK_IN_UI.logs.loggedSuffix }}</span
-            >
+            <span class="counter-badge">
+              {{ store.stockInHistory?.length || 0 }} {{ STOCK_IN_UI.logs.loggedSuffix }}
+            </span>
           </div>
 
           <div class="scrollable-logs">
@@ -231,9 +328,9 @@ function handleSubmitStockIn() {
                 <div class="log-top">
                   <div class="qty-pill">
                     <span>+{{ entry.inputQty }} {{ entry.uomTierLabel }}</span>
-                    <span class="base-units"
-                      >(+{{ entry.totalBaseUnits }} {{ entry.baseUnit }})</span
-                    >
+                    <span class="base-units">
+                      (+{{ entry.totalBaseUnits }} {{ entry.baseUnit }})
+                    </span>
                   </div>
                   <span class="log-time">{{ entry.date }}</span>
                 </div>
@@ -244,10 +341,10 @@ function handleSubmitStockIn() {
 
                 <div class="log-footer">
                   <span class="branch-tag">{{ entry.branchName }}</span>
-                  <span class="note-tag">{{ entry.note }}</span>
-                  <span v-if="entry.expiry !== 'N/A'" class="expiry-tag"
-                    >Exp: {{ entry.expiry }}</span
-                  >
+                  <span v-if="entry.note" class="note-tag">{{ entry.note }}</span>
+                  <span v-if="entry.expiry && entry.expiry !== 'N/A'" class="expiry-tag">
+                    Exp: {{ entry.expiry }}
+                  </span>
                 </div>
               </article>
             </div>

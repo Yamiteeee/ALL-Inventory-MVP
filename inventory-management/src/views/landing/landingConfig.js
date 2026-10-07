@@ -2,7 +2,7 @@
 
 export const LANDING_UI = {
   nav: {
-    brand: 'BobaSupply WMS',
+    brand: 'ALL Group',
     portalButton: 'Employee Portal',
   },
   hero: {
@@ -33,4 +33,12 @@ export const LANDING_UI = {
         'Apply recurring client loyalty discounts, clear near-expiry lots, and record live session receipts.',
     },
   ],
+  footer: {
+    copyright: '© 2026 ALL Group Corp. All rights reserved.',
+    techStack: ['Vue 3', 'Vite', 'Pinia', 'Tailwind/Apple Soft-UI'],
+    support: {
+      email: 'support@allgroup.internal',
+      hotline: '+63 (02) 8800-BOBA',
+    },
+  },
 }
