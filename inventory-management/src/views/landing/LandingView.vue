@@ -24,6 +24,7 @@ const iconMap = {
 
 <template>
   <div class="landing-viewport">
+    <!-- Main Shell (Constrained Width) -->
     <div class="landing-shell">
       <!-- Top Navigation -->
       <header class="top-nav">
@@ -69,9 +70,11 @@ const iconMap = {
           <p class="feature-desc">{{ feature.description }}</p>
         </article>
       </section>
+    </div>
 
-      <!-- Footer: Tech Stack, Support & Copyright -->
-      <footer class="landing-footer">
+    <!-- Full-Width Off-Black Footer Section -->
+    <footer class="landing-footer">
+      <div class="footer-container">
         <div class="footer-left">
           <span class="copyright">{{ LANDING_UI.footer.copyright }}</span>
           <div class="tech-stack-row">
@@ -98,9 +101,9 @@ const iconMap = {
             <span>{{ LANDING_UI.footer.support.hotline }}</span>
           </a>
         </div>
-      </footer>
-    </div>
+      </div>
+    </footer>
   </div>
 </template>
 
-<style scoped src="./LandingView.css"></style>
+<style src="./LandingView.css"></style>
