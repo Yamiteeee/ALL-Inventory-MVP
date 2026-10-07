@@ -1,6 +1,18 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
+import { LOGIN_UI } from './loginConfig'
+
+// Lucide Vue Next Icons
+import {
+  Lock,
+  User,
+  KeyRound,
+  ArrowRight,
+  AlertCircle,
+  ShieldCheck,
+  ArrowLeft,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -14,6 +26,12 @@ const employees = [
   { id: 'EMP-102', pass: 'staff123', name: 'Sam Taylor', role: 'Warehouse Clerk' },
 ]
 
+function fillCredentials(id, pass) {
+  employeeId.value = id
+  password.value = pass
+  errorMessage.value = ''
+}
+
 function handleLogin() {
   errorMessage.value = ''
 
@@ -23,69 +41,106 @@ function handleLogin() {
   )
 
   if (user) {
-    // Store user session in memory / localStorage for MVP persistence
     localStorage.setItem(
       'auth_employee',
       JSON.stringify({ name: user.name, role: user.role, id: user.id }),
     )
 
-    // Redirect straight to inventory dashboard
     router.push('/inventory')
   } else {
-    errorMessage.value = 'Invalid Employee ID or password. Check demo credentials below.'
+    errorMessage.value = LOGIN_UI.errors.invalidCredentials
   }
 }
 </script>
 
 <template>
-  <div class="login-container">
+  <div class="login-viewport">
     <div class="login-card">
+      <!-- Header -->
       <div class="login-header">
-        <span class="logo-badge">📦</span>
-        <h2>Employee Portal</h2>
-        <p>Sign in to manage warehouse stock & orders</p>
+        <div class="icon-disc">
+          <Lock :size="20" stroke-width="2.2" />
+        </div>
+        <span class="eyebrow-pill">{{ LOGIN_UI.header.badge }}</span>
+        <h2 class="portal-title">{{ LOGIN_UI.header.title }}</h2>
+        <p class="portal-subtitle">{{ LOGIN_UI.header.subtitle }}</p>
       </div>
 
+      <!-- Error Alert -->
       <div v-if="errorMessage" class="error-banner">
-        <span>⚠️ {{ errorMessage }}</span>
+        <AlertCircle :size="16" stroke-width="2.2" class="error-icon" />
+        <span>{{ errorMessage }}</span>
       </div>
 
+      <!-- Auth Form -->
       <form @submit.prevent="handleLogin" class="login-form">
-        <div class="form-group">
-          <label for="employeeId">Employee ID / Badge Number</label>
+        <div class="input-group">
+          <label for="employeeId" class="label-with-icon">
+            <User :size="13" stroke-width="2.2" />
+            <span>{{ LOGIN_UI.form.employeeIdLabel }}</span>
+          </label>
           <input
             id="employeeId"
             v-model="employeeId"
             type="text"
-            placeholder="e.g. EMP-101"
+            class="form-control"
+            :placeholder="LOGIN_UI.form.employeeIdPlaceholder"
             required
             autocomplete="username"
           />
         </div>
 
-        <div class="form-group">
-          <label for="password">Password</label>
+        <div class="input-group">
+          <label for="password" class="label-with-icon">
+            <KeyRound :size="13" stroke-width="2.2" />
+            <span>{{ LOGIN_UI.form.passwordLabel }}</span>
+          </label>
           <input
             id="password"
             v-model="password"
             type="password"
-            placeholder="••••••••"
+            class="form-control"
+            :placeholder="LOGIN_UI.form.passwordPlaceholder"
             required
             autocomplete="current-password"
           />
         </div>
 
-        <button type="submit" class="btn-submit">Sign In to Dashboard</button>
+        <button type="submit" class="btn-signin">
+          <span>{{ LOGIN_UI.form.submitButton }}</span>
+          <ArrowRight :size="15" stroke-width="2.2" />
+        </button>
       </form>
 
-      <!-- Mock Helpers for fast testing -->
-      <div class="demo-credentials">
-        <strong>Demo Login Accounts:</strong>
-        <div>Manager: <code>EMP-101</code> / <code>admin123</code></div>
-        <div>Staff: <code>EMP-102</code> / <code>staff123</code></div>
+      <!-- Clickable Demo Credentials Pill Card -->
+      <div class="demo-card">
+        <div class="demo-title">
+          <ShieldCheck :size="14" stroke-width="2.2" />
+          <span>{{ LOGIN_UI.demoHelpers.title }}</span>
+        </div>
+        <div class="demo-list">
+          <button
+            v-for="acc in LOGIN_UI.demoHelpers.accounts"
+            :key="acc.id"
+            type="button"
+            class="demo-chip"
+            @click="fillCredentials(acc.id, acc.pass)"
+          >
+            <span class="chip-role">{{ acc.role }}:</span>
+            <code class="chip-code">{{ acc.id }}</code>
+            <span class="chip-sep">/</span>
+            <code class="chip-code">{{ acc.pass }}</code>
+          </button>
+        </div>
       </div>
 
-      <RouterLink to="/" class="back-link">← Return to Landing Page</RouterLink>
+      <!-- Return Footer -->
+      <div class="login-footer">
+        <RouterLink to="/" class="back-link">
+          <ArrowLeft :size="13" stroke-width="2.2" />
+          <span>{{ LOGIN_UI.footer.backText }}</span>
+        </RouterLink>
+      </div>
     </div>
   </div>
 </template>

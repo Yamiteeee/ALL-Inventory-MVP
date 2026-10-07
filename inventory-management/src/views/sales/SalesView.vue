@@ -1,8 +1,24 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
+import { SALES_UI } from './salesConfig'
 
+// Lucide Vue Next Icons
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Trash2,
+  Receipt,
+  Percent,
+  Sparkles,
+  ShoppingBag,
+  CreditCard,
+  UserCheck,
+} from 'lucide-vue-next'
+
+const router = useRouter()
 const store = useInventoryStore()
 
 const selectedBranch = ref(store.branches[0]?.id || '')
@@ -20,6 +36,15 @@ const specialReason = ref('')
 
 const successMessage = ref('')
 const errorMessage = ref('')
+
+function goBackToCatalog() {
+  // If user navigated directly or history stack is minimal, fallback explicitly
+  if (window.history.state?.back) {
+    router.back()
+  } else {
+    router.push('/inventory')
+  }
+}
 
 const selectedCustomer = computed(() => {
   return store.customers.find((c) => c.id === selectedCustomerId.value)
@@ -94,7 +119,7 @@ function handleCompleteSale() {
       updateDefaultDiscount: shouldUpdateProfileDiscount.value,
     })
 
-    successMessage.value = `Sale completed! ₱${finalTotal.value.toFixed(2)} billed. Stock deducted.`
+    successMessage.value = `Sale complete: ₱${finalTotal.value.toFixed(2)} processed and stock deducted.`
 
     if (customerMode.value === 'new') {
       const added = store.customers.find(
@@ -116,175 +141,268 @@ function handleCompleteSale() {
 </script>
 
 <template>
-  <div class="sales-container">
-    <header class="header">
-      <RouterLink to="/inventory" class="back-link">← Back to Master Catalog</RouterLink>
-      <h2>Point of Sale & Stock Out</h2>
-      <p class="subtitle">
-        Record supply sales, apply buyer loyalty discounts, and liquidate near-expiry stock.
-      </p>
-    </header>
+  <div class="screen-wrapper">
+    <div class="minimal-shell">
+      <!-- Top Header Strip -->
+      <header class="top-nav">
+        <div class="nav-brand">
+          <button type="button" class="back-btn" @click="goBackToCatalog">
+            <ArrowLeft :size="14" stroke-width="2.5" />
+            <span>{{ SALES_UI.header.backText }}</span>
+          </button>
+          <h1 class="page-title">{{ SALES_UI.header.title }}</h1>
+          <p class="page-subtitle">{{ SALES_UI.header.subtitle }}</p>
+        </div>
 
-    <div v-if="successMessage" class="alert-success">✅ {{ successMessage }}</div>
-    <div v-if="errorMessage" class="alert-error">⚠️ {{ errorMessage }}</div>
+        <div class="header-badges">
+          <span class="session-badge">
+            <ShoppingBag :size="13" stroke-width="2.2" />
+            <span>{{ store.salesHistory?.length || 0 }} {{ SALES_UI.header.badgeSuffix }}</span>
+          </span>
+        </div>
+      </header>
 
-    <div class="sales-grid">
-      <section class="card">
-        <h3>New Sale Order</h3>
-        <form @submit.prevent="handleCompleteSale">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Branch Source</label>
-              <select v-model="selectedBranch">
-                <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-              </select>
-            </div>
+      <!-- Feedback Alerts -->
+      <div v-if="successMessage" class="alert alert-success">
+        <CheckCircle2 :size="16" />
+        <span>{{ successMessage }}</span>
+      </div>
+      <div v-if="errorMessage" class="alert alert-error">
+        <AlertCircle :size="16" />
+        <span>{{ errorMessage }}</span>
+      </div>
 
-            <div class="form-group">
-              <label>Available Stock</label>
-              <input
-                :value="`${availableStock} ${currentVariant?.uom.level1.unit || ''}`"
-                disabled
-                readonly
-              />
-            </div>
+      <!-- Main Two-Column Viewport -->
+      <div class="sales-workspace">
+        <!-- Left: Checkout Configurator Form -->
+        <section class="checkout-card">
+          <div class="card-header">
+            <span class="card-title">{{ SALES_UI.form.title }}</span>
+            <span class="step-pill">{{ SALES_UI.form.step }}</span>
           </div>
 
-          <div class="form-group">
-            <label>Sub-Product / Variant Item</label>
-            <select v-model="selectedVariantId">
-              <option v-for="p in store.flatVariants" :key="p.id" :value="p.id">
-                {{ p.fullName }} — ₱{{ p.baseCost.toFixed(2) }} / {{ p.uom.level1.unit }}
-              </option>
-            </select>
-          </div>
+          <form @submit.prevent="handleCompleteSale" class="sales-form">
+            <div class="form-grid-2">
+              <div class="input-group">
+                <label>{{ SALES_UI.form.branchLabel }}</label>
+                <div class="select-wrapper">
+                  <select v-model="selectedBranch" class="form-control">
+                    <option v-for="b in store.branches" :key="b.id" :value="b.id">
+                      {{ b.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
 
-          <div class="form-group">
-            <label>Quantity to Sell</label>
-            <input v-model.number="quantity" type="number" min="1" :max="availableStock" required />
-          </div>
-
-          <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.25rem 0" />
-
-          <h3>Customer Loyalty & Discounts</h3>
-          <div class="form-group">
-            <label>Customer Selection</label>
-            <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.85rem">
-              <label>
-                <input type="radio" value="existing" v-model="customerMode" /> Saved Buyer
-              </label>
-              <label>
-                <input type="radio" value="new" v-model="customerMode" /> + New Recurring Buyer
-              </label>
-            </div>
-
-            <div
-              v-if="customerMode === 'existing'"
-              style="display: flex; gap: 0.5rem; align-items: center"
-            >
-              <select v-model="selectedCustomerId" @change="onCustomerChange" style="flex: 1">
-                <option v-for="c in store.customers" :key="c.id" :value="c.id">
-                  {{ c.name }} ({{ c.tier }} - {{ c.defaultDiscount }}% saved default)
-                </option>
-              </select>
-              <button
-                type="button"
-                @click="handleRemoveCustomer"
-                :disabled="selectedCustomerId === 'c-walkin'"
-                style="
-                  padding: 0.65rem 0.9rem;
-                  background: #fee2e2;
-                  color: #dc2626;
-                  border: 1px solid #fca5a5;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  font-weight: 600;
-                "
-              >
-                🗑️
-              </button>
-            </div>
-
-            <input
-              v-else
-              v-model="newCustomerName"
-              placeholder="Enter Client / Cafe Name"
-              required
-            />
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Buyer Discount (%)</label>
-              <input v-model.number="buyerDiscount" type="number" min="0" max="100" />
-              <!-- Toggle to persist this discount as the new default -->
-              <div
-                v-if="customerMode === 'existing' && selectedCustomerId !== 'c-walkin'"
-                style="margin-top: 0.35rem; font-size: 0.78rem; color: #4b5563"
-              >
-                <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer">
-                  <input type="checkbox" v-model="shouldUpdateProfileDiscount" />
-                  Save {{ buyerDiscount }}% as new permanent default rate
-                </label>
+              <div class="input-group">
+                <label>{{ SALES_UI.form.stockLabel }}</label>
+                <input
+                  class="form-control readonly-stock"
+                  :value="`${availableStock} ${currentVariant?.uom.level1.unit || ''}`"
+                  disabled
+                  readonly
+                />
               </div>
             </div>
 
-            <div class="form-group">
-              <label>Special / Expiry Discount (%)</label>
-              <input v-model.number="specialDiscount" type="number" min="0" max="100" />
+            <div class="input-group">
+              <label>{{ SALES_UI.form.variantLabel }}</label>
+              <div class="select-wrapper">
+                <select v-model="selectedVariantId" class="form-control">
+                  <option v-for="p in store.flatVariants" :key="p.id" :value="p.id">
+                    {{ p.fullName }} — ₱{{ p.baseCost.toFixed(2) }} / {{ p.uom.level1.unit }}
+                  </option>
+                </select>
+              </div>
             </div>
+
+            <div class="input-group">
+              <label
+                >{{ SALES_UI.form.qtyLabel }} ({{
+                  currentVariant?.uom.level1.unit || 'units'
+                }})</label
+              >
+              <input
+                v-model.number="quantity"
+                type="number"
+                min="1"
+                :max="availableStock"
+                class="form-control"
+                required
+              />
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Customer & Discount Section -->
+            <div class="customer-section">
+              <div class="section-header">
+                <span class="section-label">{{ SALES_UI.form.dividerText }}</span>
+                <div class="segmented-control">
+                  <button
+                    type="button"
+                    :class="['segment-btn', { active: customerMode === 'existing' }]"
+                    @click="customerMode = 'existing'"
+                  >
+                    {{ SALES_UI.form.modes.existing }}
+                  </button>
+                  <button
+                    type="button"
+                    :class="['segment-btn', { active: customerMode === 'new' }]"
+                    @click="customerMode = 'new'"
+                  >
+                    {{ SALES_UI.form.modes.new }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="customerMode === 'existing'" class="existing-picker">
+                <div class="select-wrapper flex-1">
+                  <select
+                    v-model="selectedCustomerId"
+                    @change="onCustomerChange"
+                    class="form-control"
+                  >
+                    <option v-for="c in store.customers" :key="c.id" :value="c.id">
+                      {{ c.name }} ({{ c.tier }} · {{ c.defaultDiscount }}% Default)
+                    </option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  class="btn-delete"
+                  title="Remove Saved Profile"
+                  :disabled="selectedCustomerId === 'c-walkin'"
+                  @click="handleRemoveCustomer"
+                >
+                  <Trash2 :size="15" />
+                </button>
+              </div>
+
+              <input
+                v-else
+                v-model="newCustomerName"
+                class="form-control"
+                :placeholder="SALES_UI.form.newCustomerPlaceholder"
+                required
+              />
+
+              <div class="form-grid-2 mt-3">
+                <div class="input-group">
+                  <label class="label-with-icon">
+                    <Percent :size="12" />
+                    <span>{{ SALES_UI.form.buyerDiscountLabel }}</span>
+                  </label>
+                  <input
+                    v-model.number="buyerDiscount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    class="form-control"
+                  />
+                  <div
+                    v-if="customerMode === 'existing' && selectedCustomerId !== 'c-walkin'"
+                    class="checkbox-row"
+                  >
+                    <label class="custom-checkbox-label">
+                      <input type="checkbox" v-model="shouldUpdateProfileDiscount" />
+                      <span>{{ SALES_UI.form.updateProfileLabel(buyerDiscount) }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="input-group">
+                  <label class="label-with-icon">
+                    <Sparkles :size="12" />
+                    <span>{{ SALES_UI.form.specialDiscountLabel }}</span>
+                  </label>
+                  <input
+                    v-model.number="specialDiscount"
+                    type="number"
+                    min="0"
+                    max="100"
+                    class="form-control"
+                  />
+                </div>
+              </div>
+
+              <div v-if="specialDiscount > 0" class="input-group mt-3">
+                <label>{{ SALES_UI.form.reasonLabel }}</label>
+                <input
+                  v-model="specialReason"
+                  class="form-control"
+                  :placeholder="SALES_UI.form.reasonPlaceholder"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Price Summary Callout -->
+            <div class="price-summary-card">
+              <div class="summary-row">
+                <span class="text-muted">{{ SALES_UI.summary.subtotal }}</span>
+                <span class="num-text font-mono">₱{{ subtotal.toFixed(2) }}</span>
+              </div>
+              <div v-if="totalDiscountPercent > 0" class="summary-row text-discount">
+                <span>{{ SALES_UI.summary.discount(totalDiscountPercent) }}</span>
+                <span class="num-text font-mono">- ₱{{ totalDiscountAmount.toFixed(2) }}</span>
+              </div>
+              <div class="summary-divider"></div>
+              <div class="summary-row total-row">
+                <span>{{ SALES_UI.summary.finalPayable }}</span>
+                <span class="total-price font-mono">₱{{ finalTotal.toFixed(2) }}</span>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-checkout" :disabled="availableStock <= 0">
+              <CreditCard :size="16" />
+              <span>{{ SALES_UI.form.submitButton }}</span>
+            </button>
+          </form>
+        </section>
+
+        <!-- Right: Live Session Ledger -->
+        <section class="ledger-card">
+          <div class="card-header">
+            <span class="card-title">{{ SALES_UI.ledger.title }}</span>
+            <span class="counter-badge"
+              >{{ store.salesHistory?.length || 0 }} {{ SALES_UI.ledger.loggedSuffix }}</span
+            >
           </div>
 
-          <div class="form-group" v-if="specialDiscount > 0">
-            <label>Discount Reason</label>
-            <input
-              v-model="specialReason"
-              placeholder="e.g. Near-Expiry Clearance, Promo Event"
-              required
-            />
+          <div class="scrollable-ledger">
+            <div v-if="store.salesHistory?.length === 0" class="empty-ledger">
+              <Receipt :size="32" class="empty-icon" stroke-width="1.5" />
+              <p class="empty-title">{{ SALES_UI.ledger.emptyTitle }}</p>
+              <p class="empty-sub">{{ SALES_UI.ledger.emptySub }}</p>
+            </div>
+
+            <div v-else class="receipt-stream">
+              <article v-for="s in store.salesHistory" :key="s.id" class="receipt-node">
+                <div class="receipt-top">
+                  <div class="buyer-profile">
+                    <UserCheck :size="14" class="buyer-icon" />
+                    <span class="buyer-name">{{ s.customerName }}</span>
+                  </div>
+                  <span class="receipt-total font-mono">₱{{ s.finalTotal.toFixed(2) }}</span>
+                </div>
+
+                <div class="receipt-item-desc">
+                  <span class="qty-badge">{{ s.quantity }} {{ s.unit }}</span>
+                  <span class="item-name">{{ s.productName }}</span>
+                </div>
+
+                <div class="receipt-footer">
+                  <span class="timestamp">{{ s.branchName }} · {{ s.date }}</span>
+                  <div v-if="s.totalDiscountPercent > 0" class="discount-pill">
+                    🏷️ {{ s.totalDiscountPercent }}% Off
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
-
-          <div class="price-summary">
-            <div class="summary-line">
-              <span>Subtotal:</span>
-              <span>₱{{ subtotal.toFixed(2) }}</span>
-            </div>
-            <div class="summary-line discount" v-if="totalDiscountPercent > 0">
-              <span>Discount ({{ totalDiscountPercent }}%):</span>
-              <span>- ₱{{ totalDiscountAmount.toFixed(2) }}</span>
-            </div>
-            <div class="summary-line total">
-              <span>Final Bill Amount:</span>
-              <span>₱{{ finalTotal.toFixed(2) }}</span>
-            </div>
-          </div>
-
-          <button type="submit" class="btn-sale" :disabled="availableStock <= 0">
-            ✓ Process Sale & Deduct Stock
-          </button>
-        </form>
-      </section>
-
-      <section class="card">
-        <h3>Recent Sales Activity</h3>
-        <div v-if="store.salesHistory?.length === 0" class="empty-note">
-          No sales orders completed yet this session.
-        </div>
-        <ul v-else class="receipt-list">
-          <li v-for="s in store.salesHistory" :key="s.id" class="receipt-item">
-            <div class="receipt-header">
-              <strong>{{ s.customerName }}</strong>
-              <span class="receipt-total">₱{{ s.finalTotal.toFixed(2) }}</span>
-            </div>
-            <div>-{{ s.quantity }} {{ s.unit }} of {{ s.productName }}</div>
-            <div class="receipt-sub">{{ s.branchName }} • {{ s.date }}</div>
-            <div v-if="s.totalDiscountPercent > 0" class="discount-badge">
-              🏷️ {{ s.totalDiscountPercent }}% Off (Saved ₱{{ s.discountAmount.toFixed(2) }})
-              <span v-if="s.specialReason !== 'Regular Sale'">[{{ s.specialReason }}]</span>
-            </div>
-          </li>
-        </ul>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 </template>

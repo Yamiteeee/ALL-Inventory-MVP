@@ -1,41 +1,63 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { LANDING_UI } from './landingConfig'
+
+// Lucide Vue Next Icons
+import { Package, Layers, ShieldCheck, ShoppingCart, ArrowRight, LogIn } from 'lucide-vue-next'
+
+const iconMap = {
+  Layers,
+  ShieldCheck,
+  ShoppingCart,
+}
 </script>
 
 <template>
-  <div class="landing-container">
-    <nav class="landing-nav">
-      <div class="brand">📦 StockFlow</div>
-      <RouterLink to="/login" class="btn-secondary">Employee Portal</RouterLink>
-    </nav>
+  <div class="landing-viewport">
+    <div class="landing-shell">
+      <!-- Top Navigation -->
+      <header class="top-nav">
+        <div class="brand">
+          <div class="icon-disc">
+            <Package :size="16" stroke-width="2.2" />
+          </div>
+          <span class="brand-name">{{ LANDING_UI.nav.brand }}</span>
+        </div>
 
-    <main class="hero">
-      <span class="badge-tag">MVP Edition</span>
-      <h1>Real-Time Inventory Control Made Simple</h1>
-      <p class="hero-subtitle">
-        Monitor product counts, track low-stock thresholds, and manage incoming and outgoing units
-        directly from a centralized workspace.
-      </p>
+        <RouterLink to="/login" class="btn btn-secondary">
+          <LogIn :size="14" stroke-width="2.2" />
+          <span>{{ LANDING_UI.nav.portalButton }}</span>
+        </RouterLink>
+      </header>
 
-      <div class="cta-group">
-        <RouterLink to="/login" class="btn-primary">Employee Login →</RouterLink>
-      </div>
-    </main>
+      <!-- Hero Section -->
+      <main class="hero-section">
+        <span class="eyebrow-pill">{{ LANDING_UI.hero.badge }}</span>
+        <h1 class="hero-title">{{ LANDING_UI.hero.title }}</h1>
+        <p class="hero-subtitle">{{ LANDING_UI.hero.subtitle }}</p>
 
-    <section class="features-grid">
-      <div class="feature-card">
-        <h3>⚡ Real-Time Tracking</h3>
-        <p>Instant reactivity for in-memory stock increments and decrements.</p>
-      </div>
-      <div class="feature-card">
-        <h3>⚠️ Low Stock Alerts</h3>
-        <p>Color-coded status pills automatically flag low quantities.</p>
-      </div>
-      <div class="feature-card">
-        <h3>🔍 Instant SKU Search</h3>
-        <p>Filter hundreds of warehouse units by product name, SKU, or category.</p>
-      </div>
-    </section>
+        <div class="cta-group">
+          <RouterLink to="/login" class="btn btn-action-primary">
+            <span>{{ LANDING_UI.hero.ctaPrimary }}</span>
+            <ArrowRight :size="15" stroke-width="2.2" />
+          </RouterLink>
+          <RouterLink to="/login" class="btn btn-secondary">
+            <span>{{ LANDING_UI.hero.ctaSecondary }}</span>
+          </RouterLink>
+        </div>
+      </main>
+
+      <!-- Feature Cards Grid -->
+      <section class="features-grid">
+        <article v-for="feature in LANDING_UI.features" :key="feature.title" class="feature-card">
+          <div class="feature-icon-wrapper">
+            <component :is="iconMap[feature.icon]" :size="18" stroke-width="2.2" />
+          </div>
+          <h3 class="feature-title">{{ feature.title }}</h3>
+          <p class="feature-desc">{{ feature.description }}</p>
+        </article>
+      </section>
+    </div>
   </div>
 </template>
 

@@ -2,19 +2,44 @@
 import { ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
+import { CATALOG_UI } from './catalogConfig'
+
+// Lucide Vue Next Icons
+import {
+  Search,
+  X,
+  ChevronDown,
+  ChevronRight,
+  ShoppingCart,
+  PackagePlus,
+  LogOut,
+  Box,
+  Clock,
+  ShieldCheck,
+  Cpu,
+} from 'lucide-vue-next'
 
 const router = useRouter()
 const store = useInventoryStore()
 
-const selectedBranchId = ref(store.branches[0].id)
+const selectedBranchId = ref(store.branches[0]?.id || '')
 const searchQuery = ref('')
-const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true }) // default expanded
+const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true })
 
 function toggleParent(parentId) {
   expandedParents.value[parentId] = !expandedParents.value[parentId]
 }
 
-// Compute catalog variants merged with branch-specific stock
+function expandAll() {
+  store.catalog.forEach((p) => {
+    expandedParents.value[p.parentId] = true
+  })
+}
+
+function collapseAll() {
+  expandedParents.value = {}
+}
+
 const computedCatalog = computed(() => {
   const currentStocks = store.branchStocks[selectedBranchId.value] || {}
 
@@ -43,7 +68,6 @@ const computedCatalog = computed(() => {
   })
 })
 
-// Search query matches parent info, flavor, brand, or SKU
 const filteredCatalog = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return computedCatalog.value
@@ -70,7 +94,6 @@ const filteredCatalog = computed(() => {
     .filter(Boolean)
 })
 
-// High-level metrics
 const totalCatalogVariants = computed(() =>
   store.catalog.reduce((acc, p) => acc + p.variants.length, 0),
 )
@@ -86,187 +109,245 @@ function logout() {
 </script>
 
 <template>
-  <div class="dashboard">
-    <!-- Header with Branch Selector -->
-    <header class="header">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
-        "
-      >
-        <div>
-          <h1 style="margin: 0">🧋 BobaSupply Enterprise Master Catalog</h1>
-          <p style="margin: 0.25rem 0 0 0; color: #6b7280">
-            Parent Catalog · Sub-Product Variants · Multi-Tier UOM
-          </p>
+  <div class="screen-wrapper">
+    <div class="minimal-shell">
+      <!-- Fixed Header Strip -->
+      <header class="top-nav">
+        <div class="nav-brand">
+          <span class="eyebrow">{{ CATALOG_UI.header.badge }}</span>
+          <h1 class="page-title">{{ CATALOG_UI.header.title }}</h1>
+          <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
-        <div style="display: flex; gap: 0.5rem">
-          <RouterLink
-            to="/sales"
-            class="btn"
-            style="background: #059669; color: #fff; text-decoration: none"
-          >
-            🛒 POS / Stock Out
+        <div class="nav-controls">
+          <RouterLink to="/sales" class="btn btn-secondary">
+            <ShoppingCart :size="15" stroke-width="2.2" />
+            <span>Point of Sale</span>
           </RouterLink>
-          <RouterLink to="/stock-in" class="btn btn-primary" style="text-decoration: none">
-            + PO Stock Intake
+          <RouterLink to="/stock-in" class="btn btn-action-primary">
+            <PackagePlus :size="15" stroke-width="2.2" />
+            <span>Receive PO</span>
           </RouterLink>
-          <button class="btn btn-danger" @click="logout">Sign Out</button>
+          <button class="btn btn-icon" title="Sign Out" @click="logout">
+            <LogOut :size="15" stroke-width="2.2" />
+          </button>
         </div>
-      </div>
+      </header>
 
-      <div class="branch-selector-bar">
-        <label><strong>Viewing Stock for:</strong></label>
-        <select v-model="selectedBranchId" class="branch-dropdown">
-          <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-        </select>
-      </div>
-
-      <!-- Quick Metrics -->
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="label">Parent Families</span>
-          <span class="value">{{ store.catalog.length }}</span>
+      <!-- Overview Controls -->
+      <section class="overview-bar">
+        <div class="selector-field">
+          <span class="selector-tag">Location</span>
+          <div class="select-wrapper">
+            <select v-model="selectedBranchId" class="minimal-select">
+              <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+            </select>
+          </div>
         </div>
-        <div class="stat-card">
-          <span class="label">Sub-Product Variants</span>
-          <span class="value">{{ totalCatalogVariants }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="label">Base Units On Hand</span>
-          <span class="value">{{ totalBranchUnits }}</span>
-        </div>
-      </div>
-    </header>
 
-    <!-- Master Catalog Hierarchy Table -->
-    <section class="card">
-      <div class="table-toolbar">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Filter by Parent, Sub-Product flavor, SKU, Brand, or Box #..."
-          class="search-input"
-        />
-      </div>
+        <div class="kpi-group">
+          <div class="kpi-item">
+            <span class="kpi-label">{{ CATALOG_UI.kpiLabels.parents }}</span>
+            <span class="kpi-num">{{ store.catalog.length }}</span>
+          </div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-item">
+            <span class="kpi-label">{{ CATALOG_UI.kpiLabels.variants }}</span>
+            <span class="kpi-num">{{ totalCatalogVariants }}</span>
+          </div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-item">
+            <span class="kpi-label">{{ CATALOG_UI.kpiLabels.onHand }}</span>
+            <span class="kpi-num emphasized">{{ totalBranchUnits }}</span>
+          </div>
+        </div>
+      </section>
 
-      <div class="parent-catalog-container">
-        <div v-for="parent in filteredCatalog" :key="parent.parentId" class="parent-block">
-          <!-- Parent Row Header -->
-          <div class="parent-header" @click="toggleParent(parent.parentId)">
-            <div style="display: flex; align-items: center; gap: 0.75rem">
-              <span class="toggle-icon">{{ expandedParents[parent.parentId] ? '▼' : '▶' }}</span>
-              <div>
-                <strong class="parent-title">{{ parent.parentName }}</strong>
-                <span class="parent-brand-tag">Brand: {{ parent.brand }}</span>
-                <span class="parent-cat-tag">{{ parent.category }} / {{ parent.subCategory }}</span>
-                <span v-if="parent.isPerishable" class="tag-perishable">⏳ Perishable Batches</span>
-                <span v-else class="tag-nonperishable">🛡️ Non-Perishable</span>
+      <!-- Search & Controls -->
+      <section class="filter-bar">
+        <div class="search-box">
+          <Search :size="16" class="search-icon" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="CATALOG_UI.toolbar.searchPlaceholder"
+            class="minimal-input"
+          />
+          <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">
+            <X :size="14" />
+          </button>
+        </div>
+
+        <div class="segmented-control">
+          <button type="button" class="segment-btn" @click="expandAll">
+            {{ CATALOG_UI.toolbar.expandAll }}
+          </button>
+          <button type="button" class="segment-btn" @click="collapseAll">
+            {{ CATALOG_UI.toolbar.collapseAll }}
+          </button>
+        </div>
+      </section>
+
+      <!-- Internal Scrollable Catalog Container -->
+      <div class="scrollable-catalog-viewport">
+        <main class="tree-container">
+          <article v-for="parent in filteredCatalog" :key="parent.parentId" class="parent-node">
+            <!-- Parent Header -->
+            <header class="node-header" @click="toggleParent(parent.parentId)">
+              <div class="node-lead">
+                <div class="chevron-wrap">
+                  <ChevronDown
+                    v-if="expandedParents[parent.parentId]"
+                    :size="16"
+                    stroke-width="2.5"
+                  />
+                  <ChevronRight v-else :size="16" stroke-width="2.5" />
+                </div>
+                <div class="node-meta">
+                  <span class="node-title">{{ parent.parentName }}</span>
+                  <div class="tag-row">
+                    <span class="tag tag-mono">{{ parent.brand }}</span>
+                    <span class="tag">{{ parent.category }} · {{ parent.subCategory }}</span>
+                    <span v-if="parent.isPerishable" class="tag tag-muted">
+                      <Clock :size="11" />
+                      Perishable
+                    </span>
+                    <span v-else class="tag tag-muted">
+                      <ShieldCheck :size="11" />
+                      Standard
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="node-trail">
+                <span class="vendor-label"
+                  >Vendor: <strong>{{ parent.supplier }}</strong></span
+                >
+                <span class="unit-badge">{{ parent.totalUnits }} units</span>
+              </div>
+            </header>
+
+            <!-- Nested Variants -->
+            <div v-show="expandedParents[parent.parentId]" class="node-body">
+              <div class="table-container">
+                <table class="minimal-table">
+                  <thead>
+                    <tr>
+                      <th
+                        v-for="header in CATALOG_UI.tableHeaders"
+                        :key="header.key"
+                        :style="{ width: header.width }"
+                      >
+                        {{ header.label }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="variant in parent.variants" :key="variant.id">
+                      <!-- SKU -->
+                      <td>
+                        <div class="sku-cell">{{ variant.sku }}</div>
+                        <div class="ref-sub">{{ variant.supplierItemNo }}</div>
+                      </td>
+
+                      <!-- Specs -->
+                      <td>
+                        <div class="title-cell">{{ variant.autoName }}</div>
+                        <div class="desc-sub">
+                          <span v-if="variant.flavor">{{ variant.flavor }} · </span>
+                          <span v-if="variant.color">{{ variant.color }} · </span>
+                          <span>{{ variant.sizeCapacity }}</span>
+                          <span v-if="variant.shelfLifeDays">
+                            · {{ variant.shelfLifeDays }}d shelf</span
+                          >
+                        </div>
+                        <div v-if="variant.warranty" class="hardware-note">
+                          <Cpu :size="12" />
+                          <span>{{ variant.machineSpecs }} ({{ variant.warranty }})</span>
+                        </div>
+                      </td>
+
+                      <!-- CBM -->
+                      <td>
+                        <div class="cbm-cell">{{ variant.cbm }} m³</div>
+                        <div class="ref-sub">{{ variant.dimensions.weightKg }} kg</div>
+                      </td>
+
+                      <!-- Packaging Matrix -->
+                      <td>
+                        <div class="uom-row">
+                          <span class="lvl">L1</span> 1 {{ variant.uom.level1.unit }}
+                          <span v-if="variant.uom.level1.pcsPerUnit > 1" class="text-tertiary"
+                            >({{ variant.uom.level1.pcsPerUnit }} pcs)</span
+                          >
+                        </div>
+                        <div class="uom-row">
+                          <span class="lvl">L2</span> 1 {{ variant.uom.level2.unit }} =
+                          {{ variant.uom.level2.multiplier }} L1
+                        </div>
+                        <div class="uom-row">
+                          <span class="lvl">L3</span> 1 {{ variant.uom.level3.unit }} =
+                          {{ variant.uom.level3.multiplier }} L2
+                        </div>
+                        <div v-if="variant.uom.bundle?.enabled" class="bundle-note">
+                          <Box :size="11" />
+                          <span
+                            >{{ variant.uom.bundle.label }} ({{
+                              variant.uom.bundle.qtyOfLvl1
+                            }}
+                            units)</span
+                          >
+                        </div>
+                      </td>
+
+                      <!-- Unit Cost -->
+                      <td class="cost-cell">₱{{ variant.baseCost.toFixed(2) }}</td>
+
+                      <!-- Stock Counts -->
+                      <td>
+                        <div class="stock-primary">
+                          {{ variant.stock }} {{ variant.uom.level1.unit }}
+                        </div>
+                        <div class="ref-sub">
+                          ~{{ variant.boxes }} {{ variant.uom.level2.unit }} · ~{{
+                            variant.pallets
+                          }}
+                          plt
+                        </div>
+                      </td>
+
+                      <!-- State Status -->
+                      <td>
+                        <span v-if="variant.stock === 0" class="status-indicator status-depleted">
+                          {{ CATALOG_UI.statusLabels.out }}
+                        </span>
+                        <span
+                          v-else-if="variant.stock <= 10"
+                          class="status-indicator status-warning"
+                        >
+                          {{ CATALOG_UI.statusLabels.low }}
+                        </span>
+                        <span v-else class="status-indicator status-nominal">
+                          {{ CATALOG_UI.statusLabels.healthy }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div class="parent-summary">
-              <span
-                >Supplier: <strong>{{ parent.supplier }}</strong></span
-              >
-              <span class="parent-units-badge">{{ parent.totalUnits }} total units in branch</span>
-            </div>
-          </div>
+          </article>
 
-          <!-- Sub-Products (Variants) Child Table -->
-          <div v-if="expandedParents[parent.parentId]" class="child-variant-wrapper">
-            <table class="variant-table">
-              <thead>
-                <tr>
-                  <th>SKU / Supplier #</th>
-                  <th>Automated Variant Name & Specs</th>
-                  <th>CBM / Dim</th>
-                  <th>3-Tier UOM Packaging Matrix</th>
-                  <th>Unit Cost</th>
-                  <th>Stock on Hand</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="variant in parent.variants" :key="variant.id">
-                  <td>
-                    <div class="font-mono">{{ variant.sku }}</div>
-                    <small class="text-muted">Box #: {{ variant.supplierItemNo }}</small>
-                  </td>
-                  <td>
-                    <strong style="color: #1e293b">{{ variant.autoName }}</strong>
-                    <div class="variant-attributes">
-                      <span v-if="variant.flavor"
-                        >Flavor: <strong>{{ variant.flavor }}</strong> •
-                      </span>
-                      <span v-if="variant.color">Color: {{ variant.color }} • </span>
-                      <span>Cap: {{ variant.sizeCapacity }}</span>
-                      <span v-if="variant.shelfLifeDays">
-                        • Shelf: {{ variant.shelfLifeDays }}d</span
-                      >
-                    </div>
-                    <!-- Machine Hardware Specs -->
-                    <div v-if="variant.warranty" class="hardware-badge">
-                      ⚙️ Specs: {{ variant.machineSpecs }} | 🛡️ Warranty: {{ variant.warranty }}
-                    </div>
-                  </td>
-                  <td>
-                    <div style="font-size: 0.85rem; font-weight: 600">{{ variant.cbm }} m³</div>
-                    <small class="text-muted">{{ variant.dimensions.weightKg }} kg</small>
-                  </td>
-                  <td>
-                    <div class="uom-pill">
-                      <strong>L1 (Base):</strong> 1 {{ variant.uom.level1.unit }}
-                      <span v-if="variant.uom.level1.pcsPerUnit > 1"
-                        >({{ variant.uom.level1.pcsPerUnit }} pcs)</span
-                      >
-                    </div>
-                    <div class="uom-pill">
-                      <strong>L2 (Box):</strong> 1 {{ variant.uom.level2.unit }} =
-                      {{ variant.uom.level2.multiplier }} {{ variant.uom.level1.unit }}
-                    </div>
-                    <div class="uom-pill">
-                      <strong>L3 (Pallet):</strong> 1 {{ variant.uom.level3.unit }} =
-                      {{ variant.uom.level3.multiplier }} boxes
-                    </div>
-                    <div v-if="variant.uom.bundle?.enabled" class="bundle-pill">
-                      🎁 Bundle: {{ variant.uom.bundle.label }} ({{
-                        variant.uom.bundle.qtyOfLvl1
-                      }}
-                      L1 units)
-                    </div>
-                  </td>
-                  <td>₱{{ variant.baseCost.toFixed(2) }}</td>
-                  <td>
-                    <strong style="font-size: 1.05rem"
-                      >{{ variant.stock }} {{ variant.uom.level1.unit }}</strong
-                    >
-                    <div class="text-muted" style="font-size: 0.75rem">
-                      (~{{ variant.boxes }} {{ variant.uom.level2.unit }} | ~{{
-                        variant.pallets
-                      }}
-                      plt)
-                    </div>
-                  </td>
-                  <td>
-                    <span v-if="variant.stock === 0" class="badge badge-out">Out of Stock</span>
-                    <span v-else-if="variant.stock <= 10" class="badge badge-low">Low Stock</span>
-                    <span v-else class="badge badge-in">Healthy</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="filteredCatalog.length === 0" class="empty-state">
+            <p>No catalog items match "{{ searchQuery }}"</p>
+            <button class="btn btn-secondary" @click="searchQuery = ''">
+              {{ CATALOG_UI.toolbar.resetSearch }}
+            </button>
           </div>
-        </div>
-
-        <div v-if="filteredCatalog.length === 0" class="empty-state">
-          No parent categories or sub-products match "{{ searchQuery }}".
-        </div>
+        </main>
       </div>
-    </section>
+    </div>
   </div>
 </template>
 
