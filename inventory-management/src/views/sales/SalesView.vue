@@ -13,6 +13,7 @@ const customerMode = ref('existing')
 const selectedCustomerId = ref(store.customers[0]?.id || '')
 const newCustomerName = ref('')
 const buyerDiscount = ref(store.customers[0]?.defaultDiscount || 0)
+const shouldUpdateProfileDiscount = ref(false)
 
 const specialDiscount = ref(0)
 const specialReason = ref('')
@@ -20,16 +21,20 @@ const specialReason = ref('')
 const successMessage = ref('')
 const errorMessage = ref('')
 
+const selectedCustomer = computed(() => {
+  return store.customers.find((c) => c.id === selectedCustomerId.value)
+})
+
 function onCustomerChange() {
-  const cust = store.customers.find((c) => c.id === selectedCustomerId.value)
-  if (cust) {
-    buyerDiscount.value = cust.defaultDiscount
+  if (selectedCustomer.value) {
+    buyerDiscount.value = selectedCustomer.value.defaultDiscount
+    shouldUpdateProfileDiscount.value = false
   }
 }
 
 function handleRemoveCustomer() {
   if (selectedCustomerId.value === 'c-walkin') return
-  const cust = store.customers.find((c) => c.id === selectedCustomerId.value)
+  const cust = selectedCustomer.value
   if (!cust) return
 
   if (window.confirm(`Remove "${cust.name}" from recurring buyers?`)) {
@@ -75,8 +80,7 @@ function handleCompleteSale() {
   const custName =
     customerMode.value === 'new'
       ? newCustomerName.value
-      : store.customers.find((c) => c.id === selectedCustomerId.value)?.name ||
-        'Walk-in Retail Buyer'
+      : selectedCustomer.value?.name || 'Walk-in Retail Buyer'
 
   try {
     store.recordSale({
@@ -87,6 +91,7 @@ function handleCompleteSale() {
       buyerDiscountPercent: buyerDiscount.value,
       specialDiscountPercent: specialDiscount.value,
       specialReason: specialReason.value,
+      updateDefaultDiscount: shouldUpdateProfileDiscount.value,
     })
 
     successMessage.value = `Sale completed! ₱${finalTotal.value.toFixed(2)} billed. Stock deducted.`
@@ -103,6 +108,7 @@ function handleCompleteSale() {
     quantity.value = 1
     specialDiscount.value = 0
     specialReason.value = ''
+    shouldUpdateProfileDiscount.value = false
   } catch (err) {
     errorMessage.value = err.message
   }
@@ -164,13 +170,12 @@ function handleCompleteSale() {
           <div class="form-group">
             <label>Customer Selection</label>
             <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.85rem">
-              <label
-                ><input type="radio" value="existing" v-model="customerMode" /> Saved Buyer</label
-              >
-              <label
-                ><input type="radio" value="new" v-model="customerMode" /> + New Recurring
-                Buyer</label
-              >
+              <label>
+                <input type="radio" value="existing" v-model="customerMode" /> Saved Buyer
+              </label>
+              <label>
+                <input type="radio" value="new" v-model="customerMode" /> + New Recurring Buyer
+              </label>
             </div>
 
             <div
@@ -179,7 +184,7 @@ function handleCompleteSale() {
             >
               <select v-model="selectedCustomerId" @change="onCustomerChange" style="flex: 1">
                 <option v-for="c in store.customers" :key="c.id" :value="c.id">
-                  {{ c.name }} ({{ c.tier }} - {{ c.defaultDiscount }}% off)
+                  {{ c.name }} ({{ c.tier }} - {{ c.defaultDiscount }}% saved default)
                 </option>
               </select>
               <button
@@ -212,6 +217,16 @@ function handleCompleteSale() {
             <div class="form-group">
               <label>Buyer Discount (%)</label>
               <input v-model.number="buyerDiscount" type="number" min="0" max="100" />
+              <!-- Toggle to persist this discount as the new default -->
+              <div
+                v-if="customerMode === 'existing' && selectedCustomerId !== 'c-walkin'"
+                style="margin-top: 0.35rem; font-size: 0.78rem; color: #4b5563"
+              >
+                <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer">
+                  <input type="checkbox" v-model="shouldUpdateProfileDiscount" />
+                  Save {{ buyerDiscount }}% as new permanent default rate
+                </label>
+              </div>
             </div>
 
             <div class="form-group">
@@ -263,6 +278,10 @@ function handleCompleteSale() {
             </div>
             <div>-{{ s.quantity }} {{ s.unit }} of {{ s.productName }}</div>
             <div class="receipt-sub">{{ s.branchName }} • {{ s.date }}</div>
+            <div v-if="s.totalDiscountPercent > 0" class="discount-badge">
+              🏷️ {{ s.totalDiscountPercent }}% Off (Saved ₱{{ s.discountAmount.toFixed(2) }})
+              <span v-if="s.specialReason !== 'Regular Sale'">[{{ s.specialReason }}]</span>
+            </div>
           </li>
         </ul>
       </section>

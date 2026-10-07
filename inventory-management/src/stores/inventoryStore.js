@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue' // 1. Added computed
+import { ref, computed } from 'vue'
 
 export const useInventoryStore = defineStore('inventory', () => {
   const branches = ref([
@@ -184,7 +184,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     localStorage.setItem('inventory_customers', JSON.stringify(customers.value))
   }
 
-  // 2. Automated Name Formula (must be defined BEFORE flatVariants)
+  // Automated Name Formula
   function generateVariantName(parent, variant) {
     const descriptors = [variant.flavor, variant.subtitle].filter(Boolean).join(' - ')
     return `${parent.brand} ${parent.parentName} · ${descriptors} (${variant.sizeCapacity})`
@@ -195,7 +195,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     return ((dim.lengthCm * dim.widthCm * dim.heightCm) / 1000000).toFixed(3)
   }
 
-  // 3. Flattened variant projection (placed here so catalog & generateVariantName exist)
+  // Flattened variant projection
   const flatVariants = computed(() => {
     return catalog.value.flatMap((parent) =>
       parent.variants.map((v) => ({
@@ -256,7 +256,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     })
   }
 
-  // POS Sales Action
+  // POS Sales Action with Selective Profile Updates
   const salesHistory = ref([])
   function recordSale({
     branchId,
@@ -266,6 +266,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     buyerDiscountPercent,
     specialDiscountPercent,
     specialReason,
+    updateDefaultDiscount = false,
   }) {
     const currentStock = branchStocks.value[branchId]?.[variantId] || 0
     const qty = Number(quantity)
@@ -287,8 +288,19 @@ export const useInventoryStore = defineStore('inventory', () => {
     const discountAmount = subtotal * (totalDiscountPercent / 100)
     const finalTotal = subtotal - discountAmount
 
+    // Check if customer exists in registry
     if (customerName && customerName.trim().toLowerCase() !== 'walk-in retail buyer') {
-      saveOrUpdateCustomer({ name: customerName, discount: buyerDiscountPercent })
+      const existing = customers.value.find(
+        (c) => c.name.toLowerCase() === customerName.trim().toLowerCase(),
+      )
+
+      // Only save/update customer profile if it is brand new OR if explicitly confirmed
+      if (!existing || updateDefaultDiscount) {
+        saveOrUpdateCustomer({
+          name: customerName,
+          discount: buyerDiscountPercent,
+        })
+      }
     }
 
     salesHistory.value.unshift({
@@ -312,7 +324,7 @@ export const useInventoryStore = defineStore('inventory', () => {
   return {
     branches,
     catalog,
-    flatVariants, // 4. Exported to store consumers
+    flatVariants,
     branchStocks,
     customers,
     stockInHistory,
