@@ -204,3 +204,160 @@ input:focus {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
 }
+.parent-catalog-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.parent-block {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.parent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f1f5f9;
+  padding: 0.85rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parent-header:hover {
+  background: #e2e8f0;
+}
+
+.toggle-icon {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.parent-title {
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.parent-brand-tag {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.parent-cat-tag {
+  background: #f3f4f6;
+  color: #4b5563;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-left: 0.4rem;
+}
+
+.tag-perishable {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.4rem;
+}
+
+.tag-nonperishable {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-left: 0.4rem;
+}
+
+.parent-summary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.parent-units-badge {
+  background: #0f172a;
+  color: #fff;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.child-variant-wrapper {
+  padding: 0.5rem;
+  background: #ffffff;
+}
+
+.variant-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.variant-table th {
+  background: #fafafa;
+  text-align: left;
+  padding: 0.65rem 0.75rem;
+  color: #475569;
+  font-weight: 600;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.variant-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.variant-attributes {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+.hardware-badge {
+  font-size: 0.75rem;
+  color: #0284c7;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  margin-top: 0.25rem;
+  display: inline-block;
+}
+
+.uom-pill {
+  font-size: 0.75rem;
+  color: #334155;
+  margin-bottom: 0.15rem;
+}
+
+.bundle-pill {
+  font-size: 0.7rem;
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  display: inline-block;
+  margin-top: 0.2rem;
+}
+
+.text-muted {
+  color: #94a3b8;
+}

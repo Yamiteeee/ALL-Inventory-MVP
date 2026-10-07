@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue' // 1. Added computed
 
 export const useInventoryStore = defineStore('inventory', () => {
   const branches = ref([
@@ -8,112 +8,145 @@ export const useInventoryStore = defineStore('inventory', () => {
     { id: 'b-uptown', name: 'Uptown Branch' },
   ])
 
-  // Master Parent-Variant Catalog
-  const products = ref([
+  // MASTER PARENT-VARIANT HIERARCHY
+  const catalog = ref([
     {
-      id: 101,
-      sku: 'SYR-SUN-APL-2.5L',
-      parentName: 'Concentrated Fruit Syrup',
-      brand: 'Sunwide',
+      parentId: 'P-100',
+      parentName: 'Concentrated Fruit Tea Syrup',
       category: 'Syrups',
-      subCategory: 'Fruit Syrups',
+      subCategory: 'Fruit Flavors',
+      brand: 'Sunwide',
       supplier: 'Golden Dragon Import Corp',
       isPerishable: true,
-      shelfLifeDays: 365,
-      flavor: 'Green Apple',
-      color: 'Emerald Green',
-      subtitle: 'Premium Barista Blend',
-      supplierItemNo: 'SW-APL-882',
-      sizeCapacity: '2.5L',
-      fullName: 'Sunwide Concentrated Fruit Syrup - Green Apple (2.5L)',
-      uom: {
-        level1: { unit: 'bottle', pcs: 1 },
-        level2: { unit: 'box', multiplier: 6 },
-        level3: { unit: 'pallet', multiplier: 25 },
-      },
-      baseCost: 380.0,
+      itemType: 'consumable',
+      variants: [
+        {
+          id: 'V-1001',
+          sku: 'SYR-SUN-APL-2.5L',
+          flavor: 'Green Apple',
+          color: 'Emerald Green',
+          subtitle: 'Premium Barista Blend',
+          supplierItemNo: 'SW-APL-882',
+          sizeCapacity: '2.5L',
+          shelfLifeDays: 365,
+          dimensions: { lengthCm: 35, widthCm: 25, heightCm: 30, weightKg: 16.5 },
+          uom: {
+            level1: { unit: 'bottle', pcsPerUnit: 1 },
+            level2: { unit: 'box', multiplier: 6 },
+            level3: { unit: 'pallet', multiplier: 25 },
+            bundle: { enabled: true, label: 'Pair Lot', qtyOfLvl1: 2 },
+          },
+          baseCost: 380.0,
+        },
+        {
+          id: 'V-1002',
+          sku: 'SYR-SUN-LYC-2.5L',
+          flavor: 'Lychee',
+          color: 'Translucent White',
+          subtitle: 'Sweet Floral Extract',
+          supplierItemNo: 'SW-LYC-104',
+          sizeCapacity: '2.5L',
+          shelfLifeDays: 365,
+          dimensions: { lengthCm: 35, widthCm: 25, heightCm: 30, weightKg: 16.5 },
+          uom: {
+            level1: { unit: 'bottle', pcsPerUnit: 1 },
+            level2: { unit: 'box', multiplier: 6 },
+            level3: { unit: 'pallet', multiplier: 25 },
+            bundle: { enabled: false },
+          },
+          baseCost: 380.0,
+        },
+      ],
     },
     {
-      id: 102,
-      sku: 'PRL-AND-BOBA-3K',
-      parentName: 'Tapioca Pearls',
-      brand: 'Andes Boba',
-      category: 'Toppings',
-      subCategory: 'Pearls',
-      supplier: 'Taiwan Direct Foods',
-      isPerishable: true,
-      shelfLifeDays: 180,
-      flavor: 'Brown Sugar Aroma',
-      color: 'Glossy Black',
-      subtitle: 'Quick-Cook 25min',
-      supplierItemNo: 'TB-BBA-03',
-      sizeCapacity: '3kg',
-      fullName: 'Andes Boba Tapioca Pearls - Brown Sugar Aroma (3kg)',
-      uom: {
-        level1: { unit: 'bag', pcs: 1 },
-        level2: { unit: 'sack/box', multiplier: 6 },
-        level3: { unit: 'pallet', multiplier: 30 },
-      },
-      baseCost: 260.0,
-    },
-    {
-      id: 103,
-      sku: 'CUP-PP-90-16OZ',
-      parentName: 'U-Cup Injection Molded',
-      brand: 'EcoPack',
+      parentId: 'P-200',
+      parentName: 'U-Cup Injection Molded Plastic',
       category: 'Packaging',
       subCategory: 'Plastic Cups',
+      brand: 'EcoPack',
       supplier: 'Manila Plastics Industrial',
       isPerishable: false,
-      shelfLifeDays: null,
-      flavor: null,
-      color: 'Ultra Clear',
-      subtitle: '90mm Caliber Flat Rim',
-      supplierItemNo: 'EP-90-16',
-      sizeCapacity: '16oz / 500ml',
-      fullName: 'EcoPack U-Cup Injection Molded - Ultra Clear (16oz / 500ml)',
-      uom: {
-        level1: { unit: 'sleeve (50pcs)', pcs: 50 },
-        level2: { unit: 'master carton', multiplier: 20 },
-        level3: { unit: 'pallet', multiplier: 24 },
-      },
-      baseCost: 110.0,
+      itemType: 'consumable',
+      variants: [
+        {
+          id: 'V-2001',
+          sku: 'CUP-EP-90-16OZ',
+          flavor: null,
+          color: 'Ultra Clear',
+          subtitle: '90mm Caliber Flat Rim',
+          supplierItemNo: 'EP-90-16',
+          sizeCapacity: '16oz (500ml)',
+          shelfLifeDays: null,
+          dimensions: { lengthCm: 45, widthCm: 38, heightCm: 42, weightKg: 12.0 },
+          uom: {
+            level1: { unit: 'sleeve', pcsPerUnit: 50 },
+            level2: { unit: 'master carton', multiplier: 20 },
+            level3: { unit: 'pallet', multiplier: 24 },
+            bundle: { enabled: true, label: 'Promo Twin-Sleeve', qtyOfLvl1: 2 },
+          },
+          baseCost: 110.0,
+        },
+        {
+          id: 'V-2002',
+          sku: 'CUP-EP-90-22OZ',
+          flavor: null,
+          color: 'Ultra Clear',
+          subtitle: '90mm Caliber Tall Rim',
+          supplierItemNo: 'EP-90-22',
+          sizeCapacity: '22oz (700ml)',
+          shelfLifeDays: null,
+          dimensions: { lengthCm: 48, widthCm: 40, heightCm: 46, weightKg: 14.2 },
+          uom: {
+            level1: { unit: 'sleeve', pcsPerUnit: 50 },
+            level2: { unit: 'master carton', multiplier: 20 },
+            level3: { unit: 'pallet', multiplier: 20 },
+            bundle: { enabled: false },
+          },
+          baseCost: 135.0,
+        },
+      ],
     },
     {
-      id: 104,
-      sku: 'MAC-SEALER-AUTO-90',
-      parentName: 'Automatic Cup Sealer',
-      brand: 'Fest Tech',
+      parentId: 'P-300',
+      parentName: 'Automatic Cup Sealing Machine',
       category: 'Machines/Hardware',
-      subCategory: 'Sealing Machines',
+      subCategory: 'Sealing Equipment',
+      brand: 'Fest Tech',
       supplier: 'Kevins Kitchen Equipment',
       isPerishable: false,
-      shelfLifeDays: null,
-      flavor: null,
-      color: 'Matte Black',
-      subtitle: 'Microcomputer Dual Sensor',
-      supplierItemNo: 'FEST-RC95',
-      sizeCapacity: '400 cups/hr',
-      fullName: 'Fest Tech Automatic Cup Sealer - Microcomputer Dual Sensor (400 cups/hr)',
-      warranty: '1 Year Parts & Labor',
-      machineSpecs: '220V / 350W / 90-95mm caliber',
-      uom: {
-        level1: { unit: 'unit', pcs: 1 },
-        level2: { unit: 'wooden crate', multiplier: 1 },
-        level3: { unit: 'pallet', multiplier: 8 },
-      },
-      baseCost: 14500.0,
+      itemType: 'hardware',
+      variants: [
+        {
+          id: 'V-3001',
+          sku: 'MAC-FEST-RC95',
+          flavor: null,
+          color: 'Matte Black',
+          subtitle: 'Microcomputer Dual Sensor',
+          supplierItemNo: 'FEST-RC95',
+          sizeCapacity: '400 cups/hr',
+          warranty: '1 Year Full Parts & Labor',
+          machineSpecs: '220V / 350W / 90-95mm caliber universal ring',
+          dimensions: { lengthCm: 36, widthCm: 25, heightCm: 58, weightKg: 28.5 },
+          uom: {
+            level1: { unit: 'unit', pcsPerUnit: 1 },
+            level2: { unit: 'wooden crate', multiplier: 1 },
+            level3: { unit: 'pallet', multiplier: 8 },
+            bundle: { enabled: false },
+          },
+          baseCost: 14500.0,
+        },
+      ],
     },
   ])
 
-  // Branch Stocks: Base Unit (Level 1) counts
+  // Branch Stocks tied to Variant IDs
   const branchStocks = ref({
-    'b-commissary': { 101: 240, 102: 180, 103: 350, 104: 8 },
-    'b-downtown': { 101: 18, 102: 12, 103: 45, 104: 1 },
-    'b-uptown': { 101: 6, 102: 0, 103: 20, 104: 0 },
+    'b-commissary': { 'V-1001': 240, 'V-1002': 180, 'V-2001': 350, 'V-2002': 120, 'V-3001': 8 },
+    'b-downtown': { 'V-1001': 18, 'V-1002': 6, 'V-2001': 45, 'V-2002': 15, 'V-3001': 1 },
+    'b-uptown': { 'V-1001': 6, 'V-1002': 0, 'V-2001': 20, 'V-2002': 0, 'V-3001': 0 },
   })
 
-  // Customer Loyalty List (Hydrated from localStorage)
+  // Customer Loyalty List
   const defaultCustomers = [
     { id: 'c-walkin', name: 'Walk-in Retail Buyer', defaultDiscount: 0, tier: 'Retail' },
     {
@@ -122,72 +155,82 @@ export const useInventoryStore = defineStore('inventory', () => {
       defaultDiscount: 5,
       tier: 'Frequent Buyer',
     },
-    {
-      id: 'c-franchise',
-      name: 'Bubble Tea Hub 10-Store Franchise',
-      defaultDiscount: 12,
-      tier: 'Wholesale Partner',
-    },
   ]
-
   const savedCustomers = localStorage.getItem('inventory_customers')
   const customers = ref(savedCustomers ? JSON.parse(savedCustomers) : defaultCustomers)
 
   function saveOrUpdateCustomer({ name, discount = 0, tier = 'Registered Buyer' }) {
     const cleanName = name.trim()
     if (!cleanName || cleanName.toLowerCase() === 'walk-in retail buyer') return null
-
     const existingIndex = customers.value.findIndex(
       (c) => c.name.toLowerCase() === cleanName.toLowerCase(),
     )
 
-    let customerRecord
+    let record
     if (existingIndex !== -1) {
       customers.value[existingIndex].defaultDiscount = Number(discount)
-      customerRecord = customers.value[existingIndex]
+      record = customers.value[existingIndex]
     } else {
-      customerRecord = {
-        id: `c-${Date.now()}`,
-        name: cleanName,
-        defaultDiscount: Number(discount),
-        tier,
-      }
-      customers.value.push(customerRecord)
+      record = { id: `c-${Date.now()}`, name: cleanName, defaultDiscount: Number(discount), tier }
+      customers.value.push(record)
     }
-
     localStorage.setItem('inventory_customers', JSON.stringify(customers.value))
-    return customerRecord
+    return record
   }
 
-  // Proper store-level method for removing a customer
   function removeCustomer(customerId) {
     if (customerId === 'c-walkin') return
-
     customers.value = customers.value.filter((c) => c.id !== customerId)
     localStorage.setItem('inventory_customers', JSON.stringify(customers.value))
   }
 
-  // Stock In / PO Receiving (Handles Level 1, Level 2 Box, or Level 3 Pallet)
-  const stockInHistory = ref([])
-  const salesHistory = ref([])
+  // 2. Automated Name Formula (must be defined BEFORE flatVariants)
+  function generateVariantName(parent, variant) {
+    const descriptors = [variant.flavor, variant.subtitle].filter(Boolean).join(' - ')
+    return `${parent.brand} ${parent.parentName} · ${descriptors} (${variant.sizeCapacity})`
+  }
 
-  function receiveStock({ branchId, productId, inputQty, uomTier, supplierNote, batchExpiry }) {
-    const product = products.value.find((p) => p.id === Number(productId))
-    if (!product) return
+  function calculateCBM(dim) {
+    if (!dim || !dim.lengthCm) return '0.000'
+    return ((dim.lengthCm * dim.widthCm * dim.heightCm) / 1000000).toFixed(3)
+  }
+
+  // 3. Flattened variant projection (placed here so catalog & generateVariantName exist)
+  const flatVariants = computed(() => {
+    return catalog.value.flatMap((parent) =>
+      parent.variants.map((v) => ({
+        ...v,
+        parentId: parent.parentId,
+        parentName: parent.parentName,
+        brand: parent.brand,
+        category: parent.category,
+        subCategory: parent.subCategory,
+        supplier: parent.supplier,
+        isPerishable: parent.isPerishable,
+        fullName: generateVariantName(parent, v),
+      })),
+    )
+  })
+
+  // Stock In Receiving Action
+  const stockInHistory = ref([])
+  function receiveStock({ branchId, variantId, inputQty, uomTier, supplierNote, batchExpiry }) {
+    const variant = flatVariants.value.find((v) => v.id === variantId)
+    if (!variant) return
 
     let totalBaseUnits = Number(inputQty)
     if (uomTier === 'level2') {
-      totalBaseUnits = Number(inputQty) * product.uom.level2.multiplier
+      totalBaseUnits = Number(inputQty) * variant.uom.level2.multiplier
     } else if (uomTier === 'level3') {
       totalBaseUnits =
-        Number(inputQty) * product.uom.level2.multiplier * product.uom.level3.multiplier
+        Number(inputQty) * variant.uom.level2.multiplier * variant.uom.level3.multiplier
     }
 
     if (!branchStocks.value[branchId]) {
       branchStocks.value[branchId] = {}
     }
-    const current = branchStocks.value[branchId][productId] || 0
-    branchStocks.value[branchId][productId] = current + totalBaseUnits
+    const current = branchStocks.value[branchId][variantId] || 0
+    branchStocks.value[branchId][variantId] = current + totalBaseUnits
 
     const branch = branches.value.find((b) => b.id === branchId)
 
@@ -198,44 +241,45 @@ export const useInventoryStore = defineStore('inventory', () => {
         ' ' +
         new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
-      productName: product.fullName,
+      productName: variant.fullName,
       inputQty: Number(inputQty),
       uomTierLabel:
         uomTier === 'level1'
-          ? product.uom.level1.unit
+          ? variant.uom.level1.unit
           : uomTier === 'level2'
-            ? product.uom.level2.unit
-            : product.uom.level3.unit,
+            ? variant.uom.level2.unit
+            : variant.uom.level3.unit,
       totalBaseUnits,
-      baseUnit: product.uom.level1.unit,
+      baseUnit: variant.uom.level1.unit,
       note: supplierNote || 'Standard Delivery',
-      expiry: batchExpiry || (product.isPerishable ? 'Batch Tagged' : 'N/A'),
+      expiry: batchExpiry || (variant.isPerishable ? 'Batch Tagged' : 'N/A'),
     })
   }
 
-  // Stock Out / POS Sale
+  // POS Sales Action
+  const salesHistory = ref([])
   function recordSale({
     branchId,
-    productId,
+    variantId,
     quantity,
     customerName,
     buyerDiscountPercent,
     specialDiscountPercent,
     specialReason,
   }) {
-    const currentStock = branchStocks.value[branchId]?.[productId] || 0
+    const currentStock = branchStocks.value[branchId]?.[variantId] || 0
     const qty = Number(quantity)
 
     if (currentStock < qty) {
       throw new Error(`Insufficient stock. Only ${currentStock} left in this branch.`)
     }
 
-    branchStocks.value[branchId][productId] = currentStock - qty
+    branchStocks.value[branchId][variantId] = currentStock - qty
 
-    const product = products.value.find((p) => p.id === Number(productId))
+    const variant = flatVariants.value.find((v) => v.id === variantId)
     const branch = branches.value.find((b) => b.id === branchId)
 
-    const subtotal = product.baseCost * qty
+    const subtotal = variant.baseCost * qty
     const totalDiscountPercent = Math.min(
       100,
       Number(buyerDiscountPercent || 0) + Number(specialDiscountPercent || 0),
@@ -243,20 +287,16 @@ export const useInventoryStore = defineStore('inventory', () => {
     const discountAmount = subtotal * (totalDiscountPercent / 100)
     const finalTotal = subtotal - discountAmount
 
-    // Auto-save recurring customer & default discount rate to localStorage
     if (customerName && customerName.trim().toLowerCase() !== 'walk-in retail buyer') {
-      saveOrUpdateCustomer({
-        name: customerName,
-        discount: buyerDiscountPercent,
-      })
+      saveOrUpdateCustomer({ name: customerName, discount: buyerDiscountPercent })
     }
 
     salesHistory.value.unshift({
       id: Date.now(),
       date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
-      productName: product.fullName,
-      unit: product.uom.level1.unit,
+      productName: variant.fullName,
+      unit: variant.uom.level1.unit,
       quantity: qty,
       subtotal,
       totalDiscountPercent,
@@ -271,14 +311,17 @@ export const useInventoryStore = defineStore('inventory', () => {
 
   return {
     branches,
-    products,
+    catalog,
+    flatVariants, // 4. Exported to store consumers
     branchStocks,
     customers,
     stockInHistory,
     salesHistory,
+    generateVariantName,
+    calculateCBM,
+    saveOrUpdateCustomer,
     removeCustomer,
     receiveStock,
     recordSale,
-    saveOrUpdateCustomer,
   }
 })

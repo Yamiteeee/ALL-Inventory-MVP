@@ -1,4 +1,3 @@
-<!-- Inside src/views/home/HomeView.vue -->
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
@@ -9,33 +8,76 @@ const store = useInventoryStore()
 
 const selectedBranchId = ref(store.branches[0].id)
 const searchQuery = ref('')
+const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true }) // default expanded
 
-const branchInventory = computed(() => {
+function toggleParent(parentId) {
+  expandedParents.value[parentId] = !expandedParents.value[parentId]
+}
+
+// Compute catalog variants merged with branch-specific stock
+const computedCatalog = computed(() => {
   const currentStocks = store.branchStocks[selectedBranchId.value] || {}
-  return store.products.map((product) => ({
-    ...product,
-    stock: currentStocks[product.id] || 0,
-    boxCount: Math.floor((currentStocks[product.id] || 0) / product.uom.level2.multiplier),
-  }))
+
+  return store.catalog.map((parent) => {
+    const variantsWithStock = parent.variants.map((v) => {
+      const stock = currentStocks[v.id] || 0
+      const boxes = Math.floor(stock / v.uom.level2.multiplier)
+      const pallets = (stock / (v.uom.level2.multiplier * v.uom.level3.multiplier)).toFixed(1)
+      return {
+        ...v,
+        stock,
+        boxes,
+        pallets,
+        autoName: store.generateVariantName(parent, v),
+        cbm: store.calculateCBM(v.dimensions),
+      }
+    })
+
+    const parentTotalUnits = variantsWithStock.reduce((acc, curr) => acc + curr.stock, 0)
+
+    return {
+      ...parent,
+      totalUnits: parentTotalUnits,
+      variants: variantsWithStock,
+    }
+  })
 })
 
-const filteredProducts = computed(() => {
+// Search query matches parent info, flavor, brand, or SKU
+const filteredCatalog = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return branchInventory.value
-  return branchInventory.value.filter(
-    (p) =>
-      p.fullName.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) ||
-      p.brand.toLowerCase().includes(q),
-  )
+  if (!q) return computedCatalog.value
+
+  return computedCatalog.value
+    .map((parent) => {
+      const parentMatches =
+        parent.parentName.toLowerCase().includes(q) ||
+        parent.brand.toLowerCase().includes(q) ||
+        parent.category.toLowerCase().includes(q)
+
+      const matchedVariants = parent.variants.filter(
+        (v) =>
+          v.autoName.toLowerCase().includes(q) ||
+          v.sku.toLowerCase().includes(q) ||
+          (v.flavor && v.flavor.toLowerCase().includes(q)) ||
+          v.supplierItemNo.toLowerCase().includes(q),
+      )
+
+      if (parentMatches) return parent
+      if (matchedVariants.length > 0) return { ...parent, variants: matchedVariants }
+      return null
+    })
+    .filter(Boolean)
 })
 
-const totalUnits = computed(() => branchInventory.value.reduce((sum, item) => sum + item.stock, 0))
-const lowStockCount = computed(
-  () => branchInventory.value.filter((i) => i.stock > 0 && i.stock <= 10).length,
+// High-level metrics
+const totalCatalogVariants = computed(() =>
+  store.catalog.reduce((acc, p) => acc + p.variants.length, 0),
 )
-const outOfStockCount = computed(() => branchInventory.value.filter((i) => i.stock === 0).length)
+const totalBranchUnits = computed(() => {
+  const stocks = store.branchStocks[selectedBranchId.value] || {}
+  return Object.values(stocks).reduce((a, b) => a + b, 0)
+})
 
 function logout() {
   localStorage.clear()
@@ -45,6 +87,7 @@ function logout() {
 
 <template>
   <div class="dashboard">
+    <!-- Header with Branch Selector -->
     <header class="header">
       <div
         style="
@@ -55,8 +98,10 @@ function logout() {
         "
       >
         <div>
-          <h1 style="margin: 0">🧋 BobaSupply Reseller Hub</h1>
-          <p style="margin: 0.25rem 0 0 0; color: #6b7280">Multi-Branch Inventory & Logistics</p>
+          <h1 style="margin: 0">🧋 BobaSupply Enterprise Master Catalog</h1>
+          <p style="margin: 0.25rem 0 0 0; color: #6b7280">
+            Parent Catalog · Sub-Product Variants · Multi-Tier UOM
+          </p>
         </div>
 
         <div style="display: flex; gap: 0.5rem">
@@ -77,91 +122,150 @@ function logout() {
       <div class="branch-selector-bar">
         <label><strong>Viewing Stock for:</strong></label>
         <select v-model="selectedBranchId" class="branch-dropdown">
-          <option v-for="b in store.branches" :key="b.id" :value="b.id">
-            {{ b.name }}
-          </option>
+          <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
       </div>
 
+      <!-- Quick Metrics -->
       <div class="stats-row">
         <div class="stat-card">
-          <span class="label">Catalog Variants</span>
-          <span class="value">{{ store.products.length }}</span>
+          <span class="label">Parent Families</span>
+          <span class="value">{{ store.catalog.length }}</span>
         </div>
         <div class="stat-card">
-          <span class="label">Units on Hand</span>
-          <span class="value">{{ totalUnits }}</span>
+          <span class="label">Sub-Product Variants</span>
+          <span class="value">{{ totalCatalogVariants }}</span>
         </div>
-        <div class="stat-card warning">
-          <span class="label">Low Stock (≤10)</span>
-          <span class="value">{{ lowStockCount }}</span>
-        </div>
-        <div class="stat-card danger">
-          <span class="label">Out of Stock</span>
-          <span class="value">{{ outOfStockCount }}</span>
+        <div class="stat-card">
+          <span class="label">Base Units On Hand</span>
+          <span class="value">{{ totalBranchUnits }}</span>
         </div>
       </div>
     </header>
 
+    <!-- Master Catalog Hierarchy Table -->
     <section class="card">
       <div class="table-toolbar">
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search by brand, parent, flavor, SKU, or category..."
+          placeholder="Filter by Parent, Sub-Product flavor, SKU, Brand, or Box #..."
           class="search-input"
         />
       </div>
 
-      <table class="inventory-table">
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th>Item & Variant Details</th>
-            <th>Category / Brand</th>
-            <th>UOM Matrix</th>
-            <th>Base Cost</th>
-            <th>Available (L1 / L2)</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in filteredProducts" :key="item.id">
-            <td class="font-mono">{{ item.sku }}</td>
-            <td>
-              <strong>{{ item.fullName }}</strong>
-              <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.2rem">
-                {{ item.subtitle }} • {{ item.sizeCapacity }}
-                <span v-if="item.isPerishable" style="color: #b45309">
-                  • ⏳ {{ item.shelfLifeDays }}d Shelf Life</span
-                >
+      <div class="parent-catalog-container">
+        <div v-for="parent in filteredCatalog" :key="parent.parentId" class="parent-block">
+          <!-- Parent Row Header -->
+          <div class="parent-header" @click="toggleParent(parent.parentId)">
+            <div style="display: flex; align-items: center; gap: 0.75rem">
+              <span class="toggle-icon">{{ expandedParents[parent.parentId] ? '▼' : '▶' }}</span>
+              <div>
+                <strong class="parent-title">{{ parent.parentName }}</strong>
+                <span class="parent-brand-tag">Brand: {{ parent.brand }}</span>
+                <span class="parent-cat-tag">{{ parent.category }} / {{ parent.subCategory }}</span>
+                <span v-if="parent.isPerishable" class="tag-perishable">⏳ Perishable Batches</span>
+                <span v-else class="tag-nonperishable">🛡️ Non-Perishable</span>
               </div>
-            </td>
-            <td>
-              <div>{{ item.category }}</div>
-              <small style="color: #6b7280">{{ item.brand }}</small>
-            </td>
-            <td>
-              <div style="font-size: 0.8rem">
-                1 {{ item.uom.level2.unit }} = {{ item.uom.level2.multiplier }}
-                {{ item.uom.level1.unit }}
-              </div>
-            </td>
-            <td>₱{{ item.baseCost.toFixed(2) }}</td>
-            <td>
-              <strong>{{ item.stock }} {{ item.uom.level1.unit }}</strong>
-              <div style="font-size: 0.75rem; color: #6b7280">
-                (~{{ item.boxCount }} {{ item.uom.level2.unit }})
-              </div>
-            </td>
-            <td>
-              <span v-if="item.stock === 0" class="badge badge-out">Depleted</span>
-              <span v-else-if="item.stock <= 10" class="badge badge-low">Low Stock</span>
-              <span v-else class="badge badge-in">Healthy</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+            <div class="parent-summary">
+              <span
+                >Supplier: <strong>{{ parent.supplier }}</strong></span
+              >
+              <span class="parent-units-badge">{{ parent.totalUnits }} total units in branch</span>
+            </div>
+          </div>
+
+          <!-- Sub-Products (Variants) Child Table -->
+          <div v-if="expandedParents[parent.parentId]" class="child-variant-wrapper">
+            <table class="variant-table">
+              <thead>
+                <tr>
+                  <th>SKU / Supplier #</th>
+                  <th>Automated Variant Name & Specs</th>
+                  <th>CBM / Dim</th>
+                  <th>3-Tier UOM Packaging Matrix</th>
+                  <th>Unit Cost</th>
+                  <th>Stock on Hand</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="variant in parent.variants" :key="variant.id">
+                  <td>
+                    <div class="font-mono">{{ variant.sku }}</div>
+                    <small class="text-muted">Box #: {{ variant.supplierItemNo }}</small>
+                  </td>
+                  <td>
+                    <strong style="color: #1e293b">{{ variant.autoName }}</strong>
+                    <div class="variant-attributes">
+                      <span v-if="variant.flavor"
+                        >Flavor: <strong>{{ variant.flavor }}</strong> •
+                      </span>
+                      <span v-if="variant.color">Color: {{ variant.color }} • </span>
+                      <span>Cap: {{ variant.sizeCapacity }}</span>
+                      <span v-if="variant.shelfLifeDays">
+                        • Shelf: {{ variant.shelfLifeDays }}d</span
+                      >
+                    </div>
+                    <!-- Machine Hardware Specs -->
+                    <div v-if="variant.warranty" class="hardware-badge">
+                      ⚙️ Specs: {{ variant.machineSpecs }} | 🛡️ Warranty: {{ variant.warranty }}
+                    </div>
+                  </td>
+                  <td>
+                    <div style="font-size: 0.85rem; font-weight: 600">{{ variant.cbm }} m³</div>
+                    <small class="text-muted">{{ variant.dimensions.weightKg }} kg</small>
+                  </td>
+                  <td>
+                    <div class="uom-pill">
+                      <strong>L1 (Base):</strong> 1 {{ variant.uom.level1.unit }}
+                      <span v-if="variant.uom.level1.pcsPerUnit > 1"
+                        >({{ variant.uom.level1.pcsPerUnit }} pcs)</span
+                      >
+                    </div>
+                    <div class="uom-pill">
+                      <strong>L2 (Box):</strong> 1 {{ variant.uom.level2.unit }} =
+                      {{ variant.uom.level2.multiplier }} {{ variant.uom.level1.unit }}
+                    </div>
+                    <div class="uom-pill">
+                      <strong>L3 (Pallet):</strong> 1 {{ variant.uom.level3.unit }} =
+                      {{ variant.uom.level3.multiplier }} boxes
+                    </div>
+                    <div v-if="variant.uom.bundle?.enabled" class="bundle-pill">
+                      🎁 Bundle: {{ variant.uom.bundle.label }} ({{
+                        variant.uom.bundle.qtyOfLvl1
+                      }}
+                      L1 units)
+                    </div>
+                  </td>
+                  <td>₱{{ variant.baseCost.toFixed(2) }}</td>
+                  <td>
+                    <strong style="font-size: 1.05rem"
+                      >{{ variant.stock }} {{ variant.uom.level1.unit }}</strong
+                    >
+                    <div class="text-muted" style="font-size: 0.75rem">
+                      (~{{ variant.boxes }} {{ variant.uom.level2.unit }} | ~{{
+                        variant.pallets
+                      }}
+                      plt)
+                    </div>
+                  </td>
+                  <td>
+                    <span v-if="variant.stock === 0" class="badge badge-out">Out of Stock</span>
+                    <span v-else-if="variant.stock <= 10" class="badge badge-low">Low Stock</span>
+                    <span v-else class="badge badge-in">Healthy</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="filteredCatalog.length === 0" class="empty-state">
+          No parent categories or sub-products match "{{ searchQuery }}".
+        </div>
+      </div>
     </section>
   </div>
 </template>

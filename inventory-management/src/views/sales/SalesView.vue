@@ -6,16 +6,14 @@ import { useInventoryStore } from '../../stores/inventoryStore'
 const store = useInventoryStore()
 
 const selectedBranch = ref(store.branches[0]?.id || '')
-const selectedProduct = ref(store.products[0]?.id || '')
+const selectedVariantId = ref(store.flatVariants[0]?.id || '')
 const quantity = ref(1)
 
-// Customer & Discount States
-const customerMode = ref('existing') // 'existing' | 'new'
+const customerMode = ref('existing')
 const selectedCustomerId = ref(store.customers[0]?.id || '')
 const newCustomerName = ref('')
 const buyerDiscount = ref(store.customers[0]?.defaultDiscount || 0)
 
-// Special occasion / Near expiry discount
 const specialDiscount = ref(0)
 const specialReason = ref('')
 
@@ -31,40 +29,26 @@ function onCustomerChange() {
 
 function handleRemoveCustomer() {
   if (selectedCustomerId.value === 'c-walkin') return
-
   const cust = store.customers.find((c) => c.id === selectedCustomerId.value)
   if (!cust) return
 
-  const confirmDelete = window.confirm(
-    `Remove "${cust.name}" from saved recurring buyers? This cannot be undone.`,
-  )
-  if (!confirmDelete) return
-
-  store.removeCustomer(selectedCustomerId.value)
-
-  // Reset dropdown to first remaining buyer
-  selectedCustomerId.value = store.customers[0]?.id || ''
-  onCustomerChange()
-
-  successMessage.value = `Removed "${cust.name}" from buyer database.`
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 3500)
+  if (window.confirm(`Remove "${cust.name}" from recurring buyers?`)) {
+    store.removeCustomer(selectedCustomerId.value)
+    selectedCustomerId.value = store.customers[0]?.id || ''
+    onCustomerChange()
+  }
 }
 
-// Current stock for selected item in chosen branch
 const availableStock = computed(() => {
-  return store.branchStocks[selectedBranch.value]?.[selectedProduct.value] || 0
+  return store.branchStocks[selectedBranch.value]?.[selectedVariantId.value] || 0
 })
 
-// Current selected product object
-const currentItem = computed(() => {
-  return store.products.find((p) => p.id === Number(selectedProduct.value))
+const currentVariant = computed(() => {
+  return store.flatVariants.find((v) => v.id === selectedVariantId.value)
 })
 
-// Financial calculations preview (using baseCost)
 const subtotal = computed(() => {
-  return (currentItem.value?.baseCost || 0) * (Number(quantity.value) || 0)
+  return (currentVariant.value?.baseCost || 0) * (Number(quantity.value) || 0)
 })
 
 const totalDiscountPercent = computed(() => {
@@ -84,7 +68,7 @@ function handleCompleteSale() {
   successMessage.value = ''
 
   if (quantity.value > availableStock.value) {
-    errorMessage.value = `Cannot complete sale. Only ${availableStock.value} ${currentItem.value?.uom.level1.unit} available in this branch!`
+    errorMessage.value = `Cannot complete sale. Only ${availableStock.value} ${currentVariant.value?.uom.level1.unit} available in this branch!`
     return
   }
 
@@ -97,7 +81,7 @@ function handleCompleteSale() {
   try {
     store.recordSale({
       branchId: selectedBranch.value,
-      productId: selectedProduct.value,
+      variantId: selectedVariantId.value,
       quantity: quantity.value,
       customerName: custName,
       buyerDiscountPercent: buyerDiscount.value,
@@ -111,9 +95,7 @@ function handleCompleteSale() {
       const added = store.customers.find(
         (c) => c.name.toLowerCase() === newCustomerName.value.trim().toLowerCase(),
       )
-      if (added) {
-        selectedCustomerId.value = added.id
-      }
+      if (added) selectedCustomerId.value = added.id
       newCustomerName.value = ''
       customerMode.value = 'existing'
     }
@@ -130,7 +112,7 @@ function handleCompleteSale() {
 <template>
   <div class="sales-container">
     <header class="header">
-      <RouterLink to="/inventory" class="back-link">← Back to Branch Overview</RouterLink>
+      <RouterLink to="/inventory" class="back-link">← Back to Master Catalog</RouterLink>
       <h2>Point of Sale & Stock Out</h2>
       <p class="subtitle">
         Record supply sales, apply buyer loyalty discounts, and liquidate near-expiry stock.
@@ -141,7 +123,6 @@ function handleCompleteSale() {
     <div v-if="errorMessage" class="alert-error">⚠️ {{ errorMessage }}</div>
 
     <div class="sales-grid">
-      <!-- Checkout Form -->
       <section class="card">
         <h3>New Sale Order</h3>
         <form @submit.prevent="handleCompleteSale">
@@ -149,16 +130,14 @@ function handleCompleteSale() {
             <div class="form-group">
               <label>Branch Source</label>
               <select v-model="selectedBranch">
-                <option v-for="b in store.branches" :key="b.id" :value="b.id">
-                  {{ b.name }}
-                </option>
+                <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
               </select>
             </div>
 
             <div class="form-group">
               <label>Available Stock</label>
               <input
-                :value="`${availableStock} ${currentItem?.uom.level1.unit || ''}`"
+                :value="`${availableStock} ${currentVariant?.uom.level1.unit || ''}`"
                 disabled
                 readonly
               />
@@ -166,9 +145,9 @@ function handleCompleteSale() {
           </div>
 
           <div class="form-group">
-            <label>Milk Tea Supply Item</label>
-            <select v-model="selectedProduct">
-              <option v-for="p in store.products" :key="p.id" :value="p.id">
+            <label>Sub-Product / Variant Item</label>
+            <select v-model="selectedVariantId">
+              <option v-for="p in store.flatVariants" :key="p.id" :value="p.id">
                 {{ p.fullName }} — ₱{{ p.baseCost.toFixed(2) }} / {{ p.uom.level1.unit }}
               </option>
             </select>
@@ -181,17 +160,17 @@ function handleCompleteSale() {
 
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.25rem 0" />
 
-          <!-- Recurring Customer & Loyalty -->
           <h3>Customer Loyalty & Discounts</h3>
           <div class="form-group">
             <label>Customer Selection</label>
             <div style="display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.85rem">
-              <label>
-                <input type="radio" value="existing" v-model="customerMode" /> Saved Buyer
-              </label>
-              <label>
-                <input type="radio" value="new" v-model="customerMode" /> + New Recurring Buyer
-              </label>
+              <label
+                ><input type="radio" value="existing" v-model="customerMode" /> Saved Buyer</label
+              >
+              <label
+                ><input type="radio" value="new" v-model="customerMode" /> + New Recurring
+                Buyer</label
+              >
             </div>
 
             <div
@@ -203,12 +182,10 @@ function handleCompleteSale() {
                   {{ c.name }} ({{ c.tier }} - {{ c.defaultDiscount }}% off)
                 </option>
               </select>
-
               <button
                 type="button"
                 @click="handleRemoveCustomer"
                 :disabled="selectedCustomerId === 'c-walkin'"
-                title="Remove this recurring buyer"
                 style="
                   padding: 0.65rem 0.9rem;
                   background: #fee2e2;
@@ -217,17 +194,16 @@ function handleCompleteSale() {
                   border-radius: 6px;
                   cursor: pointer;
                   font-weight: 600;
-                  white-space: nowrap;
                 "
               >
-                🗑️ Remove
+                🗑️
               </button>
             </div>
 
             <input
               v-else
               v-model="newCustomerName"
-              placeholder="Enter Cafe / Client Name (e.g. Tea Haven)"
+              placeholder="Enter Client / Cafe Name"
               required
             />
           </div>
@@ -248,19 +224,18 @@ function handleCompleteSale() {
             <label>Discount Reason</label>
             <input
               v-model="specialReason"
-              placeholder="e.g. Nearing Expiry (2 Weeks), Damaged Box, Anniversary Sale"
+              placeholder="e.g. Near-Expiry Clearance, Promo Event"
               required
             />
           </div>
 
-          <!-- Price Calculation Summary -->
           <div class="price-summary">
             <div class="summary-line">
-              <span>Subtotal ({{ quantity }} × ₱{{ currentItem?.baseCost }}):</span>
+              <span>Subtotal:</span>
               <span>₱{{ subtotal.toFixed(2) }}</span>
             </div>
             <div class="summary-line discount" v-if="totalDiscountPercent > 0">
-              <span>Total Discount ({{ totalDiscountPercent }}%):</span>
+              <span>Discount ({{ totalDiscountPercent }}%):</span>
               <span>- ₱{{ totalDiscountAmount.toFixed(2) }}</span>
             </div>
             <div class="summary-line total">
@@ -275,10 +250,9 @@ function handleCompleteSale() {
         </form>
       </section>
 
-      <!-- Sales Log Receipt History -->
       <section class="card">
         <h3>Recent Sales Activity</h3>
-        <div v-if="store.salesHistory.length === 0" class="empty-note">
+        <div v-if="store.salesHistory?.length === 0" class="empty-note">
           No sales orders completed yet this session.
         </div>
         <ul v-else class="receipt-list">
@@ -289,10 +263,6 @@ function handleCompleteSale() {
             </div>
             <div>-{{ s.quantity }} {{ s.unit }} of {{ s.productName }}</div>
             <div class="receipt-sub">{{ s.branchName }} • {{ s.date }}</div>
-            <div v-if="s.totalDiscountPercent > 0" class="discount-badge">
-              🏷️ {{ s.totalDiscountPercent }}% Off (Saved ₱{{ s.discountAmount.toFixed(2) }})
-              <span v-if="s.specialReason !== 'Regular Sale'">[{{ s.specialReason }}]</span>
-            </div>
           </li>
         </ul>
       </section>
