@@ -6,6 +6,7 @@ import { useInventoryStore } from '../../stores/inventoryStore'
 import { CATALOG_UI } from './catalogConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
+import IosSelect from '@/components/ui/IosSelect.vue'
 
 import {
   Search,
@@ -76,6 +77,14 @@ async function goToWarehouse() {
 const selectedBranchId = ref(store.branches[0]?.id || '')
 const searchQuery = ref('')
 const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true })
+
+// Normalized branch options for IosSelect
+const branchOptions = computed(() => {
+  return store.branches.map((b) => ({
+    value: b.id,
+    label: `${b.name} Branch`,
+  }))
+})
 
 function toggleParent(parentId) {
   expandedParents.value[parentId] = !expandedParents.value[parentId]
@@ -217,7 +226,7 @@ function logout() {
           <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
-        <!-- Navigation Controls: Clean POS & PO actions without duplicate ledger buttons -->
+        <!-- Navigation Controls -->
         <div class="nav-controls">
           <RouterLink to="/sales" class="btn btn-secondary">
             <ShoppingCart :size="15" stroke-width="2.2" />
@@ -233,16 +242,17 @@ function logout() {
         </div>
       </header>
 
-      <!-- 2. Overview Bar -->
+      <!-- 2. Overview Bar with IosSelect -->
       <section class="overview-bar anim-stagger flip-surface">
-        <div class="selector-field">
+        <div class="selector-field branch-selector-field">
           <span class="selector-tag">Store Branch</span>
-          <div class="select-wrapper">
-            <select v-model="selectedBranchId" class="minimal-select">
-              <option v-for="b in store.branches" :key="b.id" :value="b.id">
-                {{ b.name }}
-              </option>
-            </select>
+          <div class="branch-ios-select-wrap">
+            <IosSelect
+              v-model="selectedBranchId"
+              :options="branchOptions"
+              title="Select Store Branch"
+              placeholder="Choose Branch"
+            />
           </div>
         </div>
 

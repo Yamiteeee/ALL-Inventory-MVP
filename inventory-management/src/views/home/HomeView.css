@@ -1,4 +1,7 @@
-/* Scoped Soft Apple Palette & Squircles */
+/* ==========================================================================
+   Apple Soft-UI Storefront / Catalog Viewport (Decluttered & dvh Locked)
+   ========================================================================== */
+
 :root,
 .screen-wrapper {
   --bg-canvas: #f8f8fa;
@@ -24,18 +27,20 @@
   --radius-xl: 24px;
 }
 
-/* 1. LOCK FULL VIEWPORT HEIGHT */
+/* 1. LOCK FULL VIEWPORT HEIGHT WITH dvh */
 .screen-wrapper {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
+  max-width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f8fa;
   background-color: var(--bg-canvas);
   box-sizing: border-box;
   padding: 1.5rem;
   overflow: hidden !important;
+  overflow-x: hidden !important;
 }
 
 /* 2. CENTERED DASHBOARD SHELL */
@@ -43,22 +48,23 @@
   width: 100%;
   max-width: 1380px;
   height: 100%;
-  max-height: 94vh;
+  max-height: 94dvh;
   display: flex;
   flex-direction: column;
-  color: #18181b;
   color: var(--text-primary);
   font-family:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-/* Header (Fixed) */
+/* Header */
 .top-nav {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1.25rem 1.8rem;
   background: #ffffff;
   border: 1px solid #e4e4e7;
@@ -66,6 +72,28 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   margin-bottom: 1rem;
   flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  z-index: 30;
+}
+
+.nav-brand {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 35;
 }
 
 .eyebrow {
@@ -78,13 +106,59 @@
   background: #f4f4f5;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  margin-bottom: 0.25rem;
+}
+
+/* Apple Segmented View Mode Pill */
+.view-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 9999px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+  position: relative;
+  z-index: 40;
+  touch-action: manipulation;
+}
+
+.mode-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.mode-pill-btn:hover {
+  color: #18181b;
+}
+
+.mode-pill-btn:active {
+  transform: scale(0.95);
+}
+
+.mode-pill-btn.active {
+  background: #ffffff;
+  color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* Zero-Shift Layout Lock: Left-Aligned */
 .page-title {
   margin: 0;
-  font-size: 1.7rem;
+  font-size: 1.65rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #18181b;
@@ -107,6 +181,8 @@
 .typing-active {
   width: 100%;
   text-align: left;
+  display: inline-flex;
+  align-items: baseline;
 }
 
 /* Blinking Caret */
@@ -117,10 +193,6 @@
   animation: cursorBlink 0.8s infinite;
 }
 
-.typewriter-cursor.hidden {
-  display: none;
-}
-
 @keyframes cursorBlink {
   0%,
   100% {
@@ -128,6 +200,97 @@
   }
   50% {
     opacity: 0;
+  }
+}
+
+/* Morphing Period & Heart Loop */
+.morph-period {
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin-left: 3px;
+  vertical-align: baseline;
+}
+
+.dot-shape,
+.heart-shape {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+.dot-shape {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--off-black);
+  animation: dotPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.heart-shape {
+  font-size: 13px;
+  line-height: 1;
+  color: #ef4444;
+  animation: heartPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes dotPulseLoop {
+  0%,
+  42% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  48% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  88% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  94%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes heartPulseLoop {
+  0%,
+  42% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  48% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  54% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.22);
+  }
+  66%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
   }
 }
 
@@ -141,6 +304,8 @@
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }
 
 /* Buttons */
@@ -159,6 +324,7 @@
   line-height: 1;
   box-sizing: border-box;
   touch-action: manipulation;
+  white-space: nowrap;
 }
 
 .btn-action-primary {
@@ -204,19 +370,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.8rem;
+  padding: 0.95rem 1.6rem;
   background: #ffffff;
   border: 1px solid #e4e4e7;
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   margin-bottom: 1rem;
   flex-shrink: 0;
+  gap: 1rem;
 }
 
 .selector-field {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .selector-tag {
@@ -228,30 +396,32 @@
   background: #f4f4f5;
   padding: 0.25rem 0.6rem;
   border-radius: 9999px;
+  white-space: nowrap;
 }
 
-.minimal-select {
-  padding: 0.55rem 1.2rem;
-  border: 1.5px solid #e4e4e7;
+/* Branch IosSelect Integration */
+.branch-selector-field {
+  min-width: 250px;
+}
+
+.branch-ios-select-wrap {
+  width: 100%;
+  min-width: 200px;
+  max-width: 260px;
+}
+
+.branch-ios-select-wrap :deep(.ios-select-trigger) {
+  padding: 0.46rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
   border-radius: 9999px;
-  background: #f4f4f5;
-  font-size: 0.86rem;
-  font-weight: 600;
-  color: #18181b;
-  outline: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.minimal-select:focus {
-  background-color: #ffffff;
-  border-color: #18181b;
+  background: #ffffff;
 }
 
 .kpi-group {
   display: flex;
   align-items: center;
-  gap: 1.75rem;
+  gap: 1.5rem;
 }
 
 .kpi-item {
@@ -266,6 +436,7 @@
   color: #71717a;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .kpi-num {
@@ -274,6 +445,7 @@
   letter-spacing: -0.02em;
   color: #18181b;
   margin-top: 0.1rem;
+  white-space: nowrap;
 }
 
 .kpi-divider {
@@ -290,11 +462,13 @@
   align-items: center;
   margin-bottom: 1rem;
   flex-shrink: 0;
+  gap: 1rem;
 }
 
 .search-box {
   position: relative;
   width: 440px;
+  max-width: 100%;
 }
 
 .search-icon {
@@ -347,6 +521,7 @@
   border-radius: 9999px;
   border: 1px solid #e4e4e7;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .segment-btn {
@@ -360,6 +535,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
+  white-space: nowrap;
 }
 
 .segment-btn:hover {
@@ -368,7 +544,7 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* 3. DEDICATED SCROLLABLE CATALOG CONTAINER */
+/* 3. SCROLLABLE CATALOG CONTAINER */
 .scrollable-catalog-viewport {
   flex: 1;
   min-height: 0;
@@ -381,18 +557,11 @@
 .scrollable-catalog-viewport::-webkit-scrollbar {
   width: 6px;
 }
-.scrollable-catalog-viewport::-webkit-scrollbar-track {
-  background: transparent;
-}
 .scrollable-catalog-viewport::-webkit-scrollbar-thumb {
   background: #e4e4e7;
   border-radius: 9999px;
 }
-.scrollable-catalog-viewport::-webkit-scrollbar-thumb:hover {
-  background: #d4d4d8;
-}
 
-/* Tree Container Inside Viewport */
 .tree-container {
   display: flex;
   flex-direction: column;
@@ -469,6 +638,7 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .tag {
@@ -517,6 +687,7 @@
   border: 1px solid #e4e4e7;
   padding: 0.35rem 0.95rem;
   border-radius: 9999px;
+  white-space: nowrap;
 }
 
 /* Rounded Nested Table */
@@ -692,17 +863,19 @@
   font-size: 0.92rem;
 }
 
-/* =========================================================
-   RESPONSIVE DESIGN LAYER
-   ========================================================= */
-
-@supports (height: 100dvh) {
-  .screen-wrapper {
-    height: 100dvh;
-  }
+/* 3D Flip Physics & Switcher Accents */
+.flip-surface {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+  transform-origin: center center;
 }
 
-/* Tablet (<= 1024px) */
+/* ==========================================================================
+   Responsive Design Layer (Tablets & Mobile Viewport Locking with dvh)
+   ========================================================================== */
+
 @media (max-width: 1024px) {
   .search-box {
     width: 320px;
@@ -715,13 +888,14 @@
   }
 }
 
-/* Mobile & Phablet (<= 768px) */
+/* Mobile & Small Tablets (<= 768px) */
 @media (max-width: 768px) {
   .screen-wrapper {
     height: auto;
     min-height: 100dvh;
     align-items: flex-start;
-    overflow: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     padding: 0.75rem;
     padding-left: max(0.75rem, env(safe-area-inset-left));
     padding-right: max(0.75rem, env(safe-area-inset-right));
@@ -734,6 +908,12 @@
     overflow: visible;
   }
 
+  .flip-surface {
+    transform-style: flat !important;
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+  }
+
   .scrollable-catalog-viewport {
     flex: none;
     overflow: visible !important;
@@ -742,66 +922,92 @@
   }
 
   .top-nav {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-    padding: 1.1rem;
-    border-radius: 20px;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+    padding: 0.95rem 1.1rem !important;
+    border-radius: 20px !important;
     margin-bottom: 0.75rem;
+  }
+
+  .header-eyebrow-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
   .page-title {
-    font-size: 1.45rem;
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+
+  .page-subtitle {
+    font-size: 0.76rem;
+    margin-top: 0.15rem;
   }
 
   .nav-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: 0.5rem;
-    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr auto !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
   }
 
-  .btn {
-    padding: 0.65rem 0.85rem;
-    font-size: 0.82rem;
-    min-height: 44px;
+  .nav-controls .btn {
+    padding: 0.65rem 0.5rem !important;
+    font-size: 0.8rem !important;
+    min-height: 42px !important;
   }
 
   .btn-icon {
-    min-width: 44px;
+    min-width: 42px;
   }
 
+  /* Overview Bar with IosSelect on Mobile */
   .overview-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.9rem;
-    padding: 1rem 1.1rem;
-    border-radius: 20px;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.9rem !important;
+    padding: 1rem 1.1rem !important;
+    border-radius: 20px !important;
     margin-bottom: 0.75rem;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .selector-field {
-    justify-content: space-between;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
   }
 
-  .select-wrapper {
-    flex: 1;
+  .branch-selector-field {
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
-  .minimal-select {
-    width: 100%;
+  .branch-ios-select-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .branch-ios-select-wrap :deep(.ios-select-trigger) {
     min-height: 44px;
-    font-size: 16px;
+    font-size: 16px !important; /* iOS zoom lock */
   }
 
   .kpi-group {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    width: 100%;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--border-subtle);
-    gap: 0.5rem;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    padding-top: 0.85rem !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    box-sizing: border-box !important;
   }
 
   .kpi-divider {
@@ -811,7 +1017,6 @@
   .kpi-item {
     align-items: center;
     text-align: center;
-    flex: 1;
   }
 
   .kpi-label {
@@ -823,9 +1028,9 @@
   }
 
   .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.65rem;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
     margin-bottom: 0.75rem;
   }
 
@@ -835,17 +1040,21 @@
 
   .minimal-input {
     min-height: 46px;
-    font-size: 16px;
+    font-size: 16px !important; /* iOS zoom lock */
   }
 
   .segmented-control {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .segment-btn {
-    padding: 0.55rem 0.95rem;
-    min-height: 40px;
+    text-align: center !important;
+    padding: 0.55rem 0.5rem !important;
+    font-size: 0.75rem !important;
+    min-height: 40px !important;
   }
 
   .tree-container {
@@ -868,16 +1077,6 @@
     gap: 0.75rem;
   }
 
-  .chevron-wrap {
-    width: 36px;
-    height: 36px;
-  }
-
-  .tag-row {
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
   .node-trail {
     justify-content: space-between;
     gap: 0.75rem;
@@ -896,6 +1095,7 @@
     background: transparent;
   }
 
+  /* Table-to-Card Responsive Pattern */
   .minimal-table,
   .minimal-table tbody,
   .minimal-table tr,
@@ -975,10 +1175,6 @@
 
 /* Small Phones (<= 480px) */
 @media (max-width: 480px) {
-  .page-subtitle {
-    display: none;
-  }
-
   .nav-controls {
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
@@ -990,269 +1186,13 @@
     border-radius: 9999px !important;
   }
 
-  .btn-label {
-    font-size: 0.78rem;
-  }
-
-  .vendor-label {
-    font-size: 0.76rem;
+  .page-title {
+    font-size: 1.22rem !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
-  }
-}
-/* ==========================================================================
-   Storefront vs Central Warehouse Mode Flip Controls
-   ========================================================================== */
-
-.header-eyebrow-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-}
-
-/* Apple Segmented View Mode Pill */
-.view-mode-pill {
-  display: inline-flex;
-  align-items: center;
-  background: #f4f4f5;
-  border: 1px solid #e4e4e7;
-  border-radius: 9999px;
-  padding: 0.2rem;
-  gap: 0.2rem;
-}
-
-.mode-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: none;
-  background: transparent;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #71717a;
-  cursor: pointer;
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
-  touch-action: manipulation;
-}
-
-.mode-pill-btn:hover {
-  color: #18181b;
-}
-
-.mode-pill-btn.active {
-  background: #ffffff;
-  color: #18181b;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-/* Warehouse Tags & Accents */
-.warehouse-accent-tag {
-  background: #18181b !important;
-  color: #ffffff !important;
-}
-
-.warehouse-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #18181b !important;
-  color: #ffffff !important;
-  border-color: #18181b !important;
-}
-
-.warehouse-box-sub {
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #71717a;
-  margin-left: 0.25rem;
-}
-
-.bay-tag {
-  display: inline-block;
-  margin-top: 0.3rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  background: #f4f4f5;
-  color: #52525b;
-  border: 1px solid #e4e4e7;
-  padding: 0.12rem 0.5rem;
-  border-radius: 6px;
-  letter-spacing: 0.02em;
-}
-
-/* ==========================================================================
-   3D Flip Physics & Switcher Accents
-   ========================================================================== */
-
-/* Enables 3D perspective rendering and prevents subpixel jitter */
-.flip-surface {
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  will-change: transform, opacity;
-  transform-origin: center center;
-}
-
-/* Button pill tactile press feel */
-.mode-pill-btn:active {
-  transform: scale(0.95);
-}
-
-.mode-pill-btn.active {
-  background: #ffffff;
-  color: #18181b;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transform: scale(1);
-}
-
-/* Warehouse badge pulse on mode activation */
-.warehouse-badge {
-  animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes badgePop {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-  60% {
-    transform: scale(1.04);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* ==========================================================================
-   3D Flip Physics & Switcher Accents
-   ========================================================================== */
-
-/* Enables 3D perspective rendering and prevents subpixel jitter */
-.flip-surface {
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  will-change: transform, opacity;
-  transform-origin: center center;
-}
-
-/* Button pill tactile press feel */
-.mode-pill-btn:active {
-  transform: scale(0.95);
-}
-
-.mode-pill-btn.active {
-  background: #ffffff;
-  color: #18181b;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transform: scale(1);
-}
-
-/* Warehouse badge pulse on mode activation */
-.warehouse-badge {
-  animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes badgePop {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-  60% {
-    transform: scale(1.04);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-/* Ensure the pill switcher is always on top and clickable */
-.header-eyebrow-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.35rem;
-  position: relative;
-  z-index: 10;
-  flex-wrap: wrap;
-}
-
-.view-mode-pill {
-  display: inline-flex;
-  align-items: center;
-  background: #f4f4f5;
-  border: 1px solid #e4e4e7;
-  border-radius: 9999px;
-  padding: 0.2rem;
-  gap: 0.2rem;
-  position: relative;
-  z-index: 12;
-  touch-action: manipulation;
-}
-
-.mode-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border: none;
-  background: transparent;
-  padding: 0.35rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #71717a;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-
-.mode-pill-btn.active {
-  background: #ffffff;
-  color: #18181b;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-/* Fix mobile Safari & Android touch pass-through */
-@media (max-width: 768px) {
-  /* Bypass WebKit transform-style bug that breaks touch hit-testing */
-  .flip-surface {
-    transform-style: flat !important;
-    backface-visibility: visible !important;
-    -webkit-backface-visibility: visible !important;
-  }
-
-  .top-nav {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 0.85rem !important;
-  }
-
-  .nav-brand {
-    width: 100%;
-    position: relative;
-    z-index: 10;
-  }
-
-  .nav-controls {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.5rem !important;
-    width: 100% !important;
-    position: relative;
-    z-index: 5;
-  }
-
-  .nav-controls .btn-icon {
-    grid-column: span 2;
   }
 }

@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { SALES_UI } from './salesConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
+import IosSelect from '@/components/ui/IosSelect.vue'
 
 // Lucide Vue Next Icons
 import {
@@ -19,6 +20,7 @@ import {
   CreditCard,
   UserCheck,
   ListOrdered,
+  Tag,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -50,22 +52,6 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const mobileActiveTab = ref('pos') // 'pos' | 'ledger'
 
-// Viewport tracking for responsive dropdown string formatting
-const isMobile = ref(false)
-
-function handleResize() {
-  isMobile.value = window.innerWidth <= 768
-}
-
-onMounted(() => {
-  handleResize()
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-})
-
 function goBackToCatalog() {
   if (window.history.state?.back) {
     router.back()
@@ -73,6 +59,30 @@ function goBackToCatalog() {
     router.push('/inventory')
   }
 }
+
+// Normalized Options for IosSelect
+const branchOptions = computed(() => {
+  return store.branches.map((b) => ({
+    value: b.id,
+    label: b.name,
+  }))
+})
+
+const variantOptions = computed(() => {
+  return store.flatVariants.map((p) => ({
+    value: p.id,
+    label: `${p.brand ? p.brand + ' · ' : ''}${p.productName || p.autoName || p.fullName}`,
+    sublabel: `₱${p.baseCost.toFixed(2)} / ${p.uom.level1.unit} · ${p.flavor || p.color || p.sizeCapacity || p.sku}`,
+  }))
+})
+
+const customerOptions = computed(() => {
+  return store.customers.map((c) => ({
+    value: c.id,
+    label: c.name,
+    sublabel: `${c.tier} Tier · Default: ${c.defaultDiscount}% off`,
+  }))
+})
 
 const selectedCustomer = computed(() => {
   return store.customers.find((c) => c.id === selectedCustomerId.value)
@@ -120,18 +130,6 @@ const totalDiscountAmount = computed(() => {
 const finalTotal = computed(() => {
   return Math.max(0, subtotal.value - totalDiscountAmount.value)
 })
-
-function formatVariantOptionLabel(p) {
-  if (!isMobile.value) {
-    return `${p.fullName} — ₱${p.baseCost.toFixed(2)} / ${p.uom.level1.unit}`
-  }
-  const brand = p.brand ? `${p.brand} · ` : ''
-  const spec = p.flavor || p.color || p.sizeCapacity || ''
-  const baseName = p.productName || p.autoName || p.fullName || ''
-  const label = spec ? `${brand}${baseName} (${spec})` : `${brand}${baseName}`
-
-  return label.length > 36 ? `${label.slice(0, 34)}…` : label
-}
 
 function handleCompleteSale() {
   errorMessage.value = ''
@@ -187,15 +185,17 @@ function handleCompleteSale() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- 1. Top Header Strip (Animates from top) -->
+      <!-- 1. Streamlined Top Header Strip -->
       <header class="top-nav anim-top">
         <div class="nav-brand">
-          <button type="button" class="back-btn" @click="goBackToCatalog">
-            <ArrowLeft :size="14" stroke-width="2.5" />
-            <span>{{ SALES_UI.header.backText }}</span>
-          </button>
+          <div class="header-meta-bar">
+            <button type="button" class="back-btn" @click="goBackToCatalog">
+              <ArrowLeft :size="13" stroke-width="2.5" />
+              <span class="back-text-desktop">{{ SALES_UI.header.backText }}</span>
+              <span class="back-text-mobile">Catalog</span>
+            </button>
+          </div>
 
-          <!-- Zero-shift layout lock + dot/heart morph loop -->
           <h1 class="page-title">
             <span class="ghost-reserve" aria-hidden="true">{{ SALES_UI.header.title }}.</span>
             <span class="typing-active">
@@ -211,7 +211,8 @@ function handleCompleteSale() {
           <p class="page-subtitle">{{ SALES_UI.header.subtitle }}</p>
         </div>
 
-        <div class="header-badges">
+        <!-- Rendered strictly on desktop to avoid mobile cramming -->
+        <div class="header-badges desktop-badge">
           <span class="session-badge">
             <ShoppingBag :size="13" stroke-width="2.2" />
             <span>{{ store.salesHistory?.length || 0 }} {{ SALES_UI.header.badgeSuffix }}</span>
@@ -233,7 +234,7 @@ function handleCompleteSale() {
         </div>
       </transition>
 
-      <!-- Mobile Tab Switcher (Visible only <= 768px) -->
+      <!-- Mobile Tab Switcher (Visible only <= 768px; already provides transaction count) -->
       <div class="mobile-segmented-bar anim-stagger">
         <button
           type="button"
@@ -255,7 +256,7 @@ function handleCompleteSale() {
         </button>
       </div>
 
-      <!-- 2. Two-Column Workspace (Cards pop in with spring physics) -->
+      <!-- 2. Two-Column Workspace -->
       <div class="sales-workspace" :data-active-tab="mobileActiveTab">
         <!-- Left: Checkout Configurator Card -->
         <section
@@ -270,14 +271,13 @@ function handleCompleteSale() {
           <form @submit.prevent="handleCompleteSale" class="sales-form">
             <div class="form-grid-2">
               <div class="input-group">
-                <label for="pos-branch-select">{{ SALES_UI.form.branchLabel }}</label>
-                <div class="select-wrapper">
-                  <select id="pos-branch-select" v-model="selectedBranch" class="form-control">
-                    <option v-for="b in store.branches" :key="b.id" :value="b.id">
-                      {{ b.name }}
-                    </option>
-                  </select>
-                </div>
+                <label>{{ SALES_UI.form.branchLabel }}</label>
+                <IosSelect
+                  v-model="selectedBranch"
+                  :options="branchOptions"
+                  title="Select Retail Branch"
+                  placeholder="Choose Branch"
+                />
               </div>
 
               <div class="input-group">
@@ -291,18 +291,19 @@ function handleCompleteSale() {
               </div>
             </div>
 
+            <!-- Variant Picker -->
             <div class="input-group">
-              <label for="pos-variant-select">{{ SALES_UI.form.variantLabel }}</label>
-              <div class="select-wrapper">
-                <select id="pos-variant-select" v-model="selectedVariantId" class="form-control">
-                  <option v-for="p in store.flatVariants" :key="p.id" :value="p.id">
-                    {{ formatVariantOptionLabel(p) }}
-                  </option>
-                </select>
-              </div>
+              <label>{{ SALES_UI.form.variantLabel }}</label>
+              <IosSelect
+                v-model="selectedVariantId"
+                :options="variantOptions"
+                title="Select Catalog Product SKU"
+                placeholder="Choose Product Variant"
+                searchable
+              />
 
-              <!-- Only displayed on mobile via CSS -->
-              <div v-if="currentVariant" class="selected-variant-preview mobile-only">
+              <!-- Preview Card below select -->
+              <div v-if="currentVariant" class="selected-variant-preview">
                 <div class="preview-title">{{ currentVariant.fullName }}</div>
                 <div class="preview-meta">
                   <span class="preview-tag tag-mono">
@@ -358,16 +359,13 @@ function handleCompleteSale() {
               </div>
 
               <div v-if="customerMode === 'existing'" class="existing-picker">
-                <div class="select-wrapper flex-1">
-                  <select
+                <div class="flex-1">
+                  <IosSelect
                     v-model="selectedCustomerId"
+                    :options="customerOptions"
+                    title="Select Recurring Buyer Profile"
                     @change="onCustomerChange"
-                    class="form-control"
-                  >
-                    <option v-for="c in store.customers" :key="c.id" :value="c.id">
-                      {{ c.name }} ({{ c.tier }} · {{ c.defaultDiscount }}%)
-                    </option>
-                  </select>
+                  />
                 </div>
                 <button
                   type="button"
@@ -502,8 +500,10 @@ function handleCompleteSale() {
 
                 <div class="receipt-footer">
                   <span class="timestamp">{{ s.branchName }} · {{ s.date }}</span>
+                  <!-- Professional SVG Tag Icon replaces the emoji -->
                   <div v-if="s.totalDiscountPercent > 0" class="discount-pill">
-                    🏷️ {{ s.totalDiscountPercent }}% Off
+                    <Tag :size="11" stroke-width="2.2" />
+                    <span>{{ s.totalDiscountPercent }}% Off</span>
                   </div>
                 </div>
               </article>

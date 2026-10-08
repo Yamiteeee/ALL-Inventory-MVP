@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { STOCK_IN_UI } from './stockInConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
+import IosSelect from '@/components/ui/IosSelect.vue'
 
 // Lucide Vue Next Icons
 import {
@@ -40,22 +41,6 @@ const supplierNote = ref('')
 const successMessage = ref('')
 const mobileActiveTab = ref('form') // 'form' | 'logs' for small viewports
 
-// Viewport tracking for dynamic dropdown formatting
-const isMobile = ref(false)
-
-function handleResize() {
-  isMobile.value = window.innerWidth <= 768
-}
-
-onMounted(() => {
-  handleResize()
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-})
-
 function goBackToCatalog() {
   if (window.history.state?.back) {
     router.back()
@@ -66,6 +51,44 @@ function goBackToCatalog() {
 
 const currentVariant = computed(() => {
   return store.flatVariants.find((v) => v.id === selectedVariantId.value)
+})
+
+// Normalized Options for IosSelect
+const branchOptions = computed(() => {
+  return store.branches.map((b) => ({
+    value: b.id,
+    label: b.name,
+  }))
+})
+
+const variantOptions = computed(() => {
+  return store.flatVariants.map((item) => ({
+    value: item.id,
+    label: `${item.brand ? item.brand + ' · ' : ''}${item.productName || item.autoName || item.fullName}`,
+    sublabel: `[${item.sku}] ${item.category} · ${item.flavor || item.color || item.sizeCapacity || ''}`,
+  }))
+})
+
+const tierOptions = computed(() => {
+  if (!currentVariant.value) return []
+  const v = currentVariant.value
+  return [
+    {
+      value: 'level1',
+      label: `Level 1: Primary Unit`,
+      sublabel: `1 ${v.uom?.level1?.unit || 'unit'}`,
+    },
+    {
+      value: 'level2',
+      label: `Level 2: Master Carton / Box`,
+      sublabel: `1 ${v.uom?.level2?.unit || 'Box'} = ${v.uom?.level2?.multiplier || 1} ${v.uom?.level1?.unit || 'units'}`,
+    },
+    {
+      value: 'level3',
+      label: `Level 3: Full Pallet Lot`,
+      sublabel: `1 ${v.uom?.level3?.unit || 'Pallet'} = ${v.uom?.level3?.multiplier || 1} boxes`,
+    },
+  ]
 })
 
 const calculatedBaseUnits = computed(() => {
@@ -82,18 +105,6 @@ const calculatedBaseUnits = computed(() => {
   }
   return 0
 })
-
-function formatVariantOptionLabel(item) {
-  if (!isMobile.value) {
-    return `[${item.category}] ${item.fullName}`
-  }
-  const brand = item.brand ? `${item.brand} · ` : ''
-  const spec = item.flavor || item.color || item.sizeCapacity || ''
-  const baseName = item.productName || item.autoName || item.fullName || ''
-  const label = spec ? `${brand}${baseName} (${spec})` : `${brand}${baseName}`
-
-  return label.length > 42 ? `${label.slice(0, 40)}…` : label
-}
 
 function handleSubmitStockIn() {
   if (quantity.value <= 0 || !currentVariant.value) return
@@ -124,15 +135,17 @@ function handleSubmitStockIn() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- 1. Fixed Header Strip (Animates from top) -->
+      <!-- 1. Header Strip -->
       <header class="top-nav anim-top">
         <div class="nav-brand">
-          <button type="button" class="back-btn" @click="goBackToCatalog">
-            <ArrowLeft :size="14" stroke-width="2.5" />
-            <span>{{ STOCK_IN_UI.header.backText }}</span>
-          </button>
+          <div class="header-meta-bar">
+            <button type="button" class="back-btn" @click="goBackToCatalog">
+              <ArrowLeft :size="13" stroke-width="2.5" />
+              <span class="back-text-desktop">{{ STOCK_IN_UI.header.backText }}</span>
+              <span class="back-text-mobile">Catalog</span>
+            </button>
+          </div>
 
-          <!-- Zero-shift layout lock + dot/heart morph loop -->
           <h1 class="page-title">
             <span class="ghost-reserve" aria-hidden="true">{{ STOCK_IN_UI.header.title }}.</span>
             <span class="typing-active">
@@ -148,7 +161,8 @@ function handleSubmitStockIn() {
           <p class="page-subtitle">{{ STOCK_IN_UI.header.subtitle }}</p>
         </div>
 
-        <div class="header-badges">
+        <!-- Rendered strictly on desktop to avoid mobile cramming -->
+        <div class="header-badges desktop-badge">
           <span class="session-badge">
             <Truck :size="13" stroke-width="2.2" />
             <span>
@@ -166,7 +180,7 @@ function handleSubmitStockIn() {
         </div>
       </transition>
 
-      <!-- Mobile Tab Switcher (Visible only <= 768px) -->
+      <!-- Mobile Tab Switcher (Visible only <= 768px; already contains count) -->
       <div class="mobile-segmented-bar anim-stagger">
         <button
           type="button"
@@ -188,7 +202,7 @@ function handleSubmitStockIn() {
         </button>
       </div>
 
-      <!-- 2. Two-Column Viewport Workspace (Cards pop in with spring physics) -->
+      <!-- 2. Two-Column Workspace -->
       <div class="stockin-workspace" :data-active-tab="mobileActiveTab">
         <!-- Left Column: Intake Entry Form Card -->
         <section
@@ -201,39 +215,30 @@ function handleSubmitStockIn() {
           </div>
 
           <form @submit.prevent="handleSubmitStockIn" class="stock-form">
+            <!-- Receiving Branch (IosSelect) -->
             <div class="input-group">
-              <label for="stock-branch-select">{{ STOCK_IN_UI.form.branchLabel }}</label>
-              <div class="select-wrapper">
-                <select
-                  id="stock-branch-select"
-                  v-model="selectedBranch"
-                  class="form-control"
-                  required
-                >
-                  <option v-for="b in store.branches" :key="b.id" :value="b.id">
-                    {{ b.name }}
-                  </option>
-                </select>
-              </div>
+              <label>{{ STOCK_IN_UI.form.branchLabel }}</label>
+              <IosSelect
+                v-model="selectedBranch"
+                :options="branchOptions"
+                title="Select Receiving Branch"
+                placeholder="Choose Branch"
+              />
             </div>
 
+            <!-- Product Variant (IosSelect with Live Search) -->
             <div class="input-group">
-              <label for="stock-variant-select">{{ STOCK_IN_UI.form.variantLabel }}</label>
-              <div class="select-wrapper">
-                <select
-                  id="stock-variant-select"
-                  v-model="selectedVariantId"
-                  class="form-control"
-                  required
-                >
-                  <option v-for="item in store.flatVariants" :key="item.id" :value="item.id">
-                    {{ formatVariantOptionLabel(item) }}
-                  </option>
-                </select>
-              </div>
+              <label>{{ STOCK_IN_UI.form.variantLabel }}</label>
+              <IosSelect
+                v-model="selectedVariantId"
+                :options="variantOptions"
+                title="Select Product SKU to Receive"
+                placeholder="Choose Product Variant"
+                searchable
+              />
 
-              <!-- Only displayed on mobile via CSS -->
-              <div v-if="currentVariant" class="selected-variant-preview mobile-only">
+              <!-- Preview Card below select -->
+              <div v-if="currentVariant" class="selected-variant-preview">
                 <div class="preview-title">{{ currentVariant.fullName }}</div>
                 <div class="preview-meta">
                   <span class="preview-tag tag-mono">{{ currentVariant.sku }}</span>
@@ -241,32 +246,27 @@ function handleSubmitStockIn() {
                   <span v-if="currentVariant.sizeCapacity" class="preview-tag">
                     {{ currentVariant.sizeCapacity }}
                   </span>
+                  <span v-if="currentVariant.isPerishable" class="preview-tag tag-perishable">
+                    Cold Chain / Perishable
+                  </span>
                 </div>
               </div>
             </div>
 
+            <!-- Freight Tier (IosSelect) -->
             <div class="input-group" v-if="currentVariant">
-              <label for="stock-tier-select" class="label-with-icon">
+              <label class="label-with-icon">
                 <Layers :size="12" />
                 <span>{{ STOCK_IN_UI.form.tierLabel }}</span>
               </label>
-              <div class="select-wrapper">
-                <select id="stock-tier-select" v-model="uomTier" class="form-control">
-                  <option value="level1">
-                    Level 1: Primary Unit (1 {{ currentVariant.uom.level1.unit }})
-                  </option>
-                  <option value="level2">
-                    Level 2: Case/Box (1 {{ currentVariant.uom.level2.unit }} =
-                    {{ currentVariant.uom.level2.multiplier }} {{ currentVariant.uom.level1.unit }})
-                  </option>
-                  <option value="level3">
-                    Level 3: Pallet (1 {{ currentVariant.uom.level3.unit }} =
-                    {{ currentVariant.uom.level3.multiplier }} boxes)
-                  </option>
-                </select>
-              </div>
+              <IosSelect
+                v-model="uomTier"
+                :options="tierOptions"
+                title="Select Freight Intake Tier"
+              />
             </div>
 
+            <!-- Quantity with Conversion Pill -->
             <div class="input-group">
               <div class="label-row">
                 <label for="stock-quantity-input">{{ STOCK_IN_UI.form.qtyLabel }}</label>
@@ -293,6 +293,7 @@ function handleSubmitStockIn() {
 
             <div class="section-divider"></div>
 
+            <!-- Expiry (Conditional for Perishables) -->
             <div v-if="currentVariant?.isPerishable" class="input-group">
               <label for="stock-expiry-input" class="label-with-icon">
                 <Calendar :size="12" />
@@ -307,6 +308,7 @@ function handleSubmitStockIn() {
               />
             </div>
 
+            <!-- PO Reference / Notes -->
             <div class="input-group">
               <label for="stock-note-input" class="label-with-icon">
                 <FileText :size="12" />

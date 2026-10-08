@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Apple Soft-UI Warehouse & Pallet Ledger Styling
+   Apple Soft-UI Warehouse & Pallet Ledger Styling (Decluttered & dvh Locked)
    ========================================================================== */
 
 :root,
@@ -27,9 +27,10 @@
   --radius-xl: 24px;
 }
 
-/* 1. Full Viewport Lock */
+/* 1. Full Viewport Lock with dvh Fallback */
 .screen-wrapper {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   max-width: 100vw;
   display: flex;
@@ -47,7 +48,7 @@
   width: 100%;
   max-width: 1380px;
   height: 100%;
-  max-height: 94vh;
+  max-height: 94dvh;
   display: flex;
   flex-direction: column;
   color: #18181b;
@@ -63,7 +64,7 @@
 .top-nav {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1.25rem 1.8rem;
   background: #ffffff;
   border: 1px solid #e4e4e7;
@@ -81,12 +82,14 @@
 .nav-brand {
   min-width: 0;
   max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .header-eyebrow-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   margin-bottom: 0.35rem;
   flex-wrap: wrap;
   position: relative;
@@ -119,6 +122,15 @@
 .back-btn:hover {
   background: #e4e4e7;
   color: #18181b;
+}
+
+/* Responsive Back Button Text Switcher */
+.back-text-mobile {
+  display: none;
+}
+
+.back-text-desktop {
+  display: inline;
 }
 
 /* Apple Segmented View Mode Switcher Pill */
@@ -331,6 +343,7 @@
   align-items: center;
   gap: 0.65rem;
   flex-shrink: 0;
+  margin-top: 0.25rem;
 }
 
 .btn {
@@ -375,14 +388,6 @@
   background-color: #f4f4f5 !important;
 }
 
-.btn-icon {
-  background-color: #ffffff !important;
-  color: #71717a !important;
-  border: 1.5px solid #e4e4e7 !important;
-  padding: 0.65rem !important;
-  border-radius: 9999px !important;
-}
-
 /* Alert banner */
 .alert {
   display: flex;
@@ -424,7 +429,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap; /* Allows auto-wrap if viewport is slightly narrow */
+  flex-wrap: wrap;
   gap: 1rem 1.5rem;
   padding: 0.95rem 1.6rem;
   background: #ffffff;
@@ -440,7 +445,6 @@
   min-width: 0;
 }
 
-/* Grouping of left filter controls */
 .overview-controls-cluster {
   display: flex;
   align-items: center;
@@ -454,7 +458,7 @@
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  flex-shrink: 0; /* Prevents container from collapsing and overflowing */
+  flex-shrink: 0;
 }
 
 .selector-tag {
@@ -504,13 +508,13 @@
   box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
 }
 
-/* KPIs Cluster: Pushes right cleanly with zero overlap */
+/* KPIs Cluster */
 .kpi-group {
   display: flex;
   align-items: center;
   gap: 1.4rem;
   flex-shrink: 0;
-  margin-left: auto; /* Always pins to the right */
+  margin-left: auto;
 }
 
 .kpi-item {
@@ -907,16 +911,9 @@
 }
 
 /* ==========================================================================
-   Responsive Design Layer (Tablets & Mobile Viewport Locking)
+   Responsive Design (Tablets, iPads, Mobile with Strict dvh Lock)
    ========================================================================== */
 
-@supports (height: 100dvh) {
-  .screen-wrapper {
-    height: 100dvh;
-  }
-}
-
-/* Intermediate Laptops & Narrow Desktops (<= 1280px) */
 @media (max-width: 1280px) {
   .overview-bar {
     gap: 1rem;
@@ -936,14 +933,13 @@
   }
 }
 
-/* Tablet (<= 1024px) */
 @media (max-width: 1024px) {
   .search-box {
     width: 320px;
   }
 }
 
-/* Mobile & Small Tablet (<= 768px) */
+/* Mobile & Small Tablets (<= 768px) */
 @media (max-width: 768px) {
   .screen-wrapper {
     height: auto;
@@ -974,64 +970,52 @@
   .top-nav {
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 0.85rem !important;
-    padding: 1.1rem !important;
+    gap: 0.75rem !important;
+    padding: 0.95rem 1.1rem !important;
     border-radius: 20px !important;
   }
 
   .header-eyebrow-row {
     width: 100%;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
-  .back-btn {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.72rem;
-    min-height: 36px;
+  /* Responsive label switcher */
+  .back-text-desktop {
+    display: none;
   }
 
-  .view-mode-pill {
-    padding: 0.2rem;
-  }
-
-  .mode-pill-btn {
-    padding: 0.35rem 0.65rem;
-    font-size: 0.72rem;
-    min-height: 34px;
+  .back-text-mobile {
+    display: inline;
   }
 
   .page-title {
-    font-size: 1.3rem !important;
+    font-size: 1.35rem !important;
     line-height: 1.25;
   }
 
   .page-subtitle {
-    font-size: 0.78rem !important;
-    line-height: 1.35;
+    font-size: 0.76rem !important;
+    margin-top: 0.15rem;
   }
 
+  /* Clean 2-column mobile button grid */
   .nav-controls {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 0.5rem !important;
     width: 100% !important;
-    position: relative;
-    z-index: 25;
+    margin-top: 0.2rem;
   }
 
-  .nav-controls .btn-action-primary {
-    grid-column: 1 / -1;
-    min-height: 44px;
-  }
-
-  .nav-controls .btn-secondary,
-  .nav-controls .btn-icon {
-    min-height: 40px;
+  .nav-controls .btn {
+    padding: 0.65rem 0.5rem !important;
+    font-size: 0.78rem !important;
+    min-height: 42px !important;
   }
 
   /* Overview Bar on Mobile */
@@ -1140,6 +1124,7 @@
     white-space: nowrap !important;
   }
 
+  /* Responsive Table to Cards */
   .ledger-container {
     background: transparent !important;
     border: none !important;
@@ -1223,28 +1208,53 @@
 
 /* Small Phones (<= 420px) */
 @media (max-width: 420px) {
-  .header-eyebrow-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.45rem;
-  }
-
-  .back-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .view-mode-pill {
-    width: 100%;
-    display: flex;
-  }
-
-  .mode-pill-btn {
-    flex: 1;
-    justify-content: center;
-  }
-
   .page-title {
     font-size: 1.2rem !important;
+  }
+
+  .nav-controls {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* IosSelect Adaptation inside Overview Bar */
+.branch-selector-field {
+  min-width: 250px;
+}
+
+.branch-ios-select-wrap {
+  width: 100%;
+  min-width: 200px;
+  max-width: 270px;
+}
+
+.branch-ios-select-wrap :deep(.ios-select-trigger) {
+  padding: 0.46rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .branch-selector-field {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .branch-ios-select-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .branch-ios-select-wrap :deep(.ios-select-trigger) {
+    min-height: 44px;
+    font-size: 16px !important;
   }
 }

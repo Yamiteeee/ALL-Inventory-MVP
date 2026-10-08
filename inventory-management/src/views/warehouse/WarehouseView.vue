@@ -7,6 +7,7 @@ import { useTypewriter } from '@/animations/useTypewriter'
 import { WAREHOUSE_UI } from './warehouseConfig'
 import WarehouseIntakeModal from './WarehouseIntakeModal.vue'
 import WarehouseDispatchModal from './WarehouseDispatchModal.vue'
+import IosSelect from '@/components/ui/IosSelect.vue'
 
 import {
   ArrowLeft,
@@ -17,7 +18,6 @@ import {
   Clock,
   ShieldCheck,
   ArrowRightLeft,
-  LogOut,
   Cpu,
   Box,
   Truck,
@@ -54,13 +54,20 @@ const currentBranch = computed(() => {
   return store.branches.find((b) => b.id === selectedBranchId.value)
 })
 
+// Normalized Branch Options for IosSelect
+const branchOptions = computed(() => [
+  ...store.branches.map((b) => ({
+    value: b.id,
+    label: `${b.name} Warehouse`,
+  })),
+  {
+    value: 'all',
+    label: 'All Warehouses (Combined)',
+  },
+])
+
 function goToStorefront() {
   router.push('/inventory')
-}
-
-function logout() {
-  localStorage.clear()
-  router.push('/login')
 }
 
 function resetFilters() {
@@ -171,7 +178,7 @@ const depletedCount = computed(() => {
   return warehouseInventory.value.filter((i) => i.totalUnits === 0).length
 })
 
-// Intake Event Handler - credits the chosen branch warehouse
+// Intake Event Handler
 function onIntakeConfirm({ branchId, variant, qty, tier, bay, lot, expiry, poCode, totalUnits }) {
   const targetBranchId =
     branchId || (selectedBranchId.value === 'all' ? 'b-commissary' : selectedBranchId.value)
@@ -220,11 +227,9 @@ function onDispatchConfirm({
     if (!store.branchStocks[fromBranchId]) store.branchStocks[fromBranchId] = {}
     if (!store.branchStocks[toBranchId]) store.branchStocks[toBranchId] = {}
 
-    // Deduct from origin warehouse
     const originStock = store.branchStocks[fromBranchId][variant.id] || 0
     store.branchStocks[fromBranchId][variant.id] = Math.max(0, originStock - totalUnits)
 
-    // Credit to destination branch store
     const destStock = store.branchStocks[toBranchId][variant.id] || 0
     store.branchStocks[toBranchId][variant.id] = destStock + totalUnits
   }
@@ -241,13 +246,14 @@ function onDispatchConfirm({
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- 1. Top Navigation Bar with View Switcher Pill -->
+      <!-- 1. Top Navigation Bar -->
       <header class="top-nav anim-top">
         <div class="nav-brand">
           <div class="header-eyebrow-row">
             <button type="button" class="back-btn" @click="goToStorefront">
               <ArrowLeft :size="13" stroke-width="2.5" />
-              <span>{{ WAREHOUSE_UI.header.backButton }}</span>
+              <span class="back-text-desktop">{{ WAREHOUSE_UI.header.backButton }}</span>
+              <span class="back-text-mobile">Catalog</span>
             </button>
 
             <!-- Mode Switcher Pill -->
@@ -282,23 +288,18 @@ function onDispatchConfirm({
           </p>
         </div>
 
+        <!-- Action Controls -->
         <div class="nav-controls">
-          <!-- Dock Inbound Freight Modal Trigger -->
           <button type="button" class="btn btn-action-primary" @click="showIntakeModal = true">
             <Truck :size="15" stroke-width="2.2" />
             <span class="btn-label">{{ WAREHOUSE_UI.header.dockButton }}</span>
           </button>
 
-          <!-- Branch Dispatch Modal Trigger -->
           <button type="button" class="btn btn-secondary" @click="showDispatchModal = true">
             <ArrowRightLeft :size="15" stroke-width="2.2" />
             <span class="btn-label">{{
               WAREHOUSE_UI.header.dispatchButton || 'Dispatch to Branch'
             }}</span>
-          </button>
-
-          <button class="btn btn-icon" title="Sign Out" aria-label="Sign Out" @click="logout">
-            <LogOut :size="15" stroke-width="2.2" />
           </button>
         </div>
       </header>
@@ -311,19 +312,19 @@ function onDispatchConfirm({
         </div>
       </transition>
 
-      <!-- 2. Overview Bar -->
+      <!-- 2. Overview Bar (Powered by IosSelect) -->
       <section class="overview-bar anim-stagger">
         <div class="overview-controls-cluster">
-          <!-- Branch Selector -->
-          <div class="selector-field">
+          <!-- Branch Selector (IosSelect) -->
+          <div class="selector-field branch-selector-field">
             <span class="selector-tag">Branch</span>
-            <div class="select-wrapper">
-              <select v-model="selectedBranchId" class="minimal-select">
-                <option v-for="b in store.branches" :key="b.id" :value="b.id">
-                  {{ b.name }}
-                </option>
-                <option value="all">All Warehouses (Combined)</option>
-              </select>
+            <div class="branch-ios-select-wrap">
+              <IosSelect
+                v-model="selectedBranchId"
+                :options="branchOptions"
+                title="Select Branch Warehouse"
+                placeholder="Choose Branch Warehouse"
+              />
             </div>
           </div>
 
@@ -531,7 +532,7 @@ function onDispatchConfirm({
       </div>
     </div>
 
-    <!-- 1. Decoupled Warehouse Inbound Intake Modal -->
+    <!-- Modals -->
     <WarehouseIntakeModal
       :show="showIntakeModal"
       :variants="rawVariants"
@@ -541,7 +542,6 @@ function onDispatchConfirm({
       @confirm="onIntakeConfirm"
     />
 
-    <!-- 2. Decoupled Warehouse Branch Dispatch Modal -->
     <WarehouseDispatchModal
       :show="showDispatchModal"
       :variants="rawVariants"

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import IosSelect from '@/components/ui/IosSelect.vue'
 import { ArrowRightLeft, Store, Layers, FileText, AlertCircle, CheckCircle2 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -25,22 +26,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'confirm'])
 const store = useInventoryStore()
-
-// Viewport tracking for mobile string truncation
-const isMobile = ref(false)
-
-function handleResize() {
-  isMobile.value = typeof window !== 'undefined' && window.innerWidth <= 768
-}
-
-onMounted(() => {
-  handleResize()
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-})
 
 // Origin Warehouse (defaults to current selection or commissary)
 const sourceBranchId = ref(
@@ -102,6 +87,49 @@ const activeVariant = computed(() => {
   return props.variants.find((v) => v.id === dispatchVariantId.value) || props.variants[0]
 })
 
+// Normalized Option Lists for IosSelect
+const sourceBranchOptions = computed(() => {
+  return props.branches.map((b) => ({
+    value: b.id,
+    label: `${b.name} Warehouse`,
+  }))
+})
+
+const targetBranchOptions = computed(() => {
+  return props.branches
+    .filter((b) => b.id !== sourceBranchId.value)
+    .map((b) => ({
+      value: b.id,
+      label: `${b.name} Store`,
+    }))
+})
+
+const variantOptions = computed(() => {
+  return props.variants.map((item) => ({
+    value: item.id,
+    label: `${item.brand ? item.brand + ' · ' : ''}${item.parentName || item.productName || item.fullName}`,
+    sublabel: `[${item.sku}] ${item.category || ''} · ${item.flavor || item.color || item.sizeCapacity || ''}`,
+  }))
+})
+
+const tierOptions = computed(() => [
+  {
+    value: 'level2',
+    label: 'Level 2: Master Cartons / Boxes',
+    sublabel: 'Standard Branch Restock',
+  },
+  {
+    value: 'level3',
+    label: 'Level 3: Full Pallet Lots',
+    sublabel: 'Bulk Warehouse Pallet Lot',
+  },
+  {
+    value: 'level1',
+    label: 'Level 1: Base Units',
+    sublabel: 'Loose Pieces / Break-Bulk',
+  },
+])
+
 // Current available stock in the selected origin warehouse
 const availableBaseStock = computed(() => {
   if (!activeVariant.value) return 0
@@ -144,19 +172,6 @@ const hasSufficientStock = computed(() => {
   return availableBaseStock.value >= calculatedUnits.value
 })
 
-/**
- * Truncate long option text specifically on mobile to stop WebKit select expansion
- */
-function formatVariantOptionLabel(item) {
-  if (!isMobile.value) {
-    return `[${item.sku}] ${item.fullName}`
-  }
-  const spec = item.flavor || item.color || item.sizeCapacity || ''
-  const name = item.parentName || item.brand || item.fullName || ''
-  const label = spec ? `[${item.sku}] ${name} (${spec})` : `[${item.sku}] ${name}`
-  return label.length > 32 ? `${label.slice(0, 30)}…` : label
-}
-
 function handleSubmit() {
   if (dispatchQty.value <= 0 || !activeVariant.value || !hasSufficientStock.value) return
   if (sourceBranchId.value === targetBranchId.value) return
@@ -186,20 +201,19 @@ function handleSubmit() {
     @close="emit('close')"
   >
     <form @submit.prevent="handleSubmit" class="dispatch-form">
-      <!-- Routing: Origin to Destination -->
+      <!-- Routing: Origin to Destination (IosSelect) -->
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
             <Store :size="12" />
             <span>Origin Warehouse</span>
           </label>
-          <div class="select-wrapper">
-            <select v-model="sourceBranchId" class="form-control" required>
-              <option v-for="b in branches" :key="b.id" :value="b.id">
-                {{ b.name }}
-              </option>
-            </select>
-          </div>
+          <IosSelect
+            v-model="sourceBranchId"
+            :options="sourceBranchOptions"
+            title="Select Origin Warehouse"
+            placeholder="Choose Warehouse"
+          />
         </div>
 
         <div class="input-group">
@@ -207,40 +221,34 @@ function handleSubmit() {
             <Store :size="12" />
             <span>Destination Branch</span>
           </label>
-          <div class="select-wrapper">
-            <select v-model="targetBranchId" class="form-control" required>
-              <option
-                v-for="b in branches"
-                :key="b.id"
-                :value="b.id"
-                :disabled="b.id === sourceBranchId"
-              >
-                {{ b.name }} {{ b.id === sourceBranchId ? '(Origin)' : '' }}
-              </option>
-            </select>
-          </div>
+          <IosSelect
+            v-model="targetBranchId"
+            :options="targetBranchOptions"
+            title="Select Destination Branch Store"
+            placeholder="Choose Branch"
+          />
         </div>
       </div>
 
-      <!-- Variant Picker with Stock Status Pill & Mobile Preview Card -->
+      <!-- Variant Picker (IosSelect with Live Search) -->
       <div class="input-group">
         <div class="label-row-split">
-          <label for="dispatch-variant">Product SKU to Dispatch</label>
+          <label>Product SKU to Dispatch</label>
           <span class="stock-pill" :class="{ 'stock-pill-empty': availableBaseStock === 0 }">
             Available: <strong>{{ availableBaseStock }}</strong>
             {{ activeVariant?.uom?.level1?.unit }}
           </span>
         </div>
-        <div class="select-wrapper">
-          <select id="dispatch-variant" v-model="dispatchVariantId" class="form-control" required>
-            <option v-for="item in variants" :key="item.id" :value="item.id">
-              {{ formatVariantOptionLabel(item) }}
-            </option>
-          </select>
-        </div>
+        <IosSelect
+          v-model="dispatchVariantId"
+          :options="variantOptions"
+          title="Select SKU to Dispatch"
+          placeholder="Choose Product Variant"
+          searchable
+        />
 
-        <!-- Dedicated Mobile Preview Card to prevent select option blowout -->
-        <div v-if="activeVariant" class="selected-variant-preview mobile-only">
+        <!-- Mobile-first Variant Glance Card -->
+        <div v-if="activeVariant" class="selected-variant-preview">
           <div class="preview-title">{{ activeVariant.fullName }}</div>
           <div class="preview-meta">
             <span class="preview-tag tag-mono">{{ activeVariant.sku }}</span>
@@ -264,13 +272,11 @@ function handleSubmit() {
             <Layers :size="12" />
             <span>Dispatch Tier</span>
           </label>
-          <div class="select-wrapper">
-            <select v-model="dispatchTier" class="form-control">
-              <option value="level2">Level 2: Master Cartons / Boxes</option>
-              <option value="level3">Level 3: Full Pallet Lots</option>
-              <option value="level1">Level 1: Base Units</option>
-            </select>
-          </div>
+          <IosSelect
+            v-model="dispatchTier"
+            :options="tierOptions"
+            title="Select Freight Dispatch Tier"
+          />
         </div>
 
         <div class="input-group">
@@ -281,6 +287,7 @@ function handleSubmit() {
             type="number"
             min="1"
             step="1"
+            inputmode="numeric"
             class="form-control"
             required
           />
@@ -314,7 +321,7 @@ function handleSubmit() {
         </div>
       </div>
 
-      <!-- Live Calculation & Deficit Warning -->
+      <!-- Live Calculation Card -->
       <div class="dispatch-metrics-card">
         <div class="metric-row">
           <span class="metric-label">Deducting from Origin Warehouse:</span>
@@ -397,7 +404,6 @@ function handleSubmit() {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #71717a;
-  overflow-wrap: break-word;
 }
 
 .label-row-split {
@@ -406,10 +412,6 @@ function handleSubmit() {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
 }
 
 .stock-pill {
@@ -420,7 +422,6 @@ function handleSubmit() {
   padding: 0.15rem 0.55rem;
   border-radius: 9999px;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .stock-pill-empty {
@@ -440,7 +441,7 @@ function handleSubmit() {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 0.72rem 1.1rem;
+  padding: 0.68rem 1.1rem;
   border: 1.5px solid #e4e4e7;
   border-radius: 9999px;
   font-size: 0.88rem;
@@ -455,43 +456,46 @@ function handleSubmit() {
   box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
 }
 
-.select-wrapper {
-  position: relative;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
+.selected-variant-preview {
+  margin-top: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background: #f8f8fa;
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.preview-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #18181b;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.preview-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preview-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #52525b;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  padding: 0.12rem 0.5rem;
   border-radius: 9999px;
-  display: block !important;
 }
 
-.select-wrapper select,
-select.form-control {
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  display: block !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding-right: 2.4rem !important;
-  padding-left: 1.1rem !important;
-  background-color: #ffffff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1.1rem center;
-  background-size: 14px 14px;
-  cursor: pointer;
-}
-
-/* Mobile-Only Selected Variant Preview Card (matching SalesView) */
-.selected-variant-preview.mobile-only {
-  display: none;
+.preview-tag.tag-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: #18181b;
 }
 
 .dispatch-metrics-card {
@@ -504,8 +508,6 @@ select.form-control {
   flex-direction: column;
   gap: 0.4rem;
   width: 100%;
-  min-width: 0;
-  max-width: 100%;
 }
 
 .metric-row {
@@ -515,7 +517,6 @@ select.form-control {
   font-size: 0.82rem;
   color: #52525b;
   gap: 0.5rem;
-  min-width: 0;
 }
 
 .metric-label {
@@ -527,7 +528,6 @@ select.form-control {
   font-weight: 700;
   color: #18181b;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .text-deduct {
@@ -560,7 +560,6 @@ select.form-control {
   margin-top: 0.3rem;
   padding-top: 0.35rem;
   border-top: 1px dashed #fca5a5;
-  overflow-wrap: break-word;
 }
 
 .stock-sufficient-note {
@@ -573,7 +572,6 @@ select.form-control {
   margin-top: 0.3rem;
   padding-top: 0.35rem;
   border-top: 1px dashed #bbf7d0;
-  overflow-wrap: break-word;
 }
 
 .btn-dispatch {
@@ -611,89 +609,23 @@ select.form-control {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* ==========================================================================
-   Mobile Viewport Adaptations
-   ========================================================================== */
 @media (max-width: 640px) {
   .form-grid-2 {
     display: flex !important;
     flex-direction: column !important;
     gap: 0.75rem !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
   }
 
-  .form-control,
-  .select-wrapper select {
-    font-size: 16px !important; /* Prevents auto-zoom on iOS */
+  /* iOS virtual keyboard auto-zoom prevention */
+  .form-control {
+    font-size: 16px !important;
     min-height: 44px;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  .select-wrapper {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-  }
-
-  /* Reveal Mobile Variant Preview Card */
-  .selected-variant-preview.mobile-only {
-    display: block !important;
-    margin-top: 0.45rem;
-    padding: 0.65rem 0.85rem;
-    background: #f8f8fa;
-    border: 1px solid #e4e4e7;
-    border-radius: 14px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .preview-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #18181b;
-    line-height: 1.35;
-    margin-bottom: 0.35rem;
-    word-break: break-word;
-  }
-
-  .preview-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .preview-tag {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: #52525b;
-    background: #ffffff;
-    border: 1px solid #e4e4e7;
-    padding: 0.12rem 0.5rem;
-    border-radius: 9999px;
-  }
-
-  .preview-tag.tag-mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-weight: 700;
-    color: #18181b;
   }
 
   .label-row-split {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
-  }
-
-  .stock-pill {
-    align-self: flex-start;
   }
 
   .metric-row {

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { WAREHOUSE_UI } from './warehouseConfig'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import IosSelect from '@/components/ui/IosSelect.vue'
 import { Truck, Layers, MapPin, Calendar, FileText, Store } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -68,6 +69,49 @@ watch(
   { immediate: true },
 )
 
+// Normalized options for IosSelect
+const branchOptions = computed(() => {
+  return props.branches.map((b) => ({
+    value: b.id,
+    label: `${b.name} Warehouse`,
+  }))
+})
+
+const variantOptions = computed(() => {
+  return props.variants.map((item) => ({
+    value: item.id,
+    label: `${item.brand ? item.brand + ' · ' : ''}${item.parentName || item.fullName}`,
+    sublabel: `[${item.sku}] ${item.category || ''} · ${item.flavor || item.color || item.sizeCapacity || ''}`,
+  }))
+})
+
+const tierOptions = computed(() => {
+  const v = activeVariant.value
+  const l1Unit = v?.uom?.level1?.unit || 'unit'
+  const l2Unit = v?.uom?.level2?.unit || 'Box'
+  const l2Mult = v?.uom?.level2?.multiplier || 1
+  const l3Unit = v?.uom?.level3?.unit || 'Pallet'
+  const l3Mult = v?.uom?.level3?.multiplier || 1
+
+  return [
+    {
+      value: 'level3',
+      label: 'Level 3: Full Pallet (Bulk Lot)',
+      sublabel: `1 ${l3Unit} = ${l3Mult} ${l2Unit} (${l3Mult * l2Mult} ${l1Unit})`,
+    },
+    {
+      value: 'level2',
+      label: 'Level 2: Master Carton / Box',
+      sublabel: `1 ${l2Unit} = ${l2Mult} ${l1Unit}`,
+    },
+    {
+      value: 'level1',
+      label: 'Level 1: Base Units',
+      sublabel: `1 ${l1Unit}`,
+    },
+  ]
+})
+
 const calculatedUnits = computed(() => {
   const v = activeVariant.value
   if (!v) return 0
@@ -128,30 +172,46 @@ function handleSubmit() {
     @close="emit('close')"
   >
     <form @submit.prevent="handleSubmit" class="intake-form">
-      <!-- Destination Branch Warehouse -->
+      <!-- Destination Branch Warehouse (IosSelect) -->
       <div class="input-group">
         <label class="label-with-icon">
           <Store :size="12" />
           <span>Destination Branch Warehouse</span>
         </label>
-        <div class="select-wrapper">
-          <select v-model="intakeBranchId" class="form-control" required>
-            <option v-for="b in branches" :key="b.id" :value="b.id">
-              {{ b.name }}
-            </option>
-          </select>
-        </div>
+        <IosSelect
+          v-model="intakeBranchId"
+          :options="branchOptions"
+          title="Select Destination Warehouse"
+          placeholder="Choose Warehouse"
+        />
       </div>
 
-      <!-- Variant Picker -->
+      <!-- Variant Picker (IosSelect with Live Search) -->
       <div class="input-group">
-        <label for="intake-variant">Master Product SKU</label>
-        <div class="select-wrapper">
-          <select id="intake-variant" v-model="intakeVariantId" class="form-control" required>
-            <option v-for="item in variants" :key="item.id" :value="item.id">
-              [{{ item.sku }}] {{ item.fullName }}
-            </option>
-          </select>
+        <label>Master Product SKU</label>
+        <IosSelect
+          v-model="intakeVariantId"
+          :options="variantOptions"
+          title="Select Product SKU to Receive"
+          placeholder="Choose Product Variant"
+          searchable
+        />
+
+        <!-- Selected Variant Preview Glance -->
+        <div v-if="activeVariant" class="selected-variant-preview">
+          <div class="preview-title">{{ activeVariant.fullName }}</div>
+          <div class="preview-meta">
+            <span class="preview-tag tag-mono">{{ activeVariant.sku }}</span>
+            <span v-if="activeVariant.category" class="preview-tag">{{
+              activeVariant.category
+            }}</span>
+            <span v-if="activeVariant.sizeCapacity" class="preview-tag">{{
+              activeVariant.sizeCapacity
+            }}</span>
+            <span v-if="activeVariant.isPerishable" class="preview-tag tag-perishable">
+              Cold Chain
+            </span>
+          </div>
         </div>
       </div>
 
@@ -162,13 +222,11 @@ function handleSubmit() {
             <Layers :size="12" />
             <span>Freight Unit Tier</span>
           </label>
-          <div class="select-wrapper">
-            <select v-model="intakeTier" class="form-control">
-              <option value="level3">Level 3: Full Pallet (Bulk Lot)</option>
-              <option value="level2">Level 2: Master Carton/Box</option>
-              <option value="level1">Level 1: Base Units</option>
-            </select>
-          </div>
+          <IosSelect
+            v-model="intakeTier"
+            :options="tierOptions"
+            title="Select Freight Intake Tier"
+          />
         </div>
 
         <div class="input-group">
@@ -179,6 +237,7 @@ function handleSubmit() {
             type="number"
             min="1"
             step="1"
+            inputmode="numeric"
             class="form-control"
             required
           />
@@ -274,13 +333,18 @@ function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.85rem;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -289,6 +353,8 @@ function handleSubmit() {
   flex-direction: column;
   gap: 0.35rem;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -308,6 +374,8 @@ function handleSubmit() {
 
 .form-control {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
   padding: 0.72rem 1.1rem;
   border: 1.5px solid #e4e4e7;
@@ -324,31 +392,52 @@ function handleSubmit() {
   box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
 }
 
-.select-wrapper {
-  position: relative;
-  width: 100%;
+.selected-variant-preview {
+  margin-top: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background: #f8f8fa;
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
   box-sizing: border-box;
+  width: 100%;
 }
 
-.select-wrapper select,
-select.form-control {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding-right: 2.4rem !important;
-  padding-left: 1.1rem !important;
-  background-color: #ffffff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 1.1rem center;
-  background-size: 14px 14px;
-  cursor: pointer;
+.preview-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #18181b;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.preview-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.preview-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #52525b;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  padding: 0.12rem 0.5rem;
+  border-radius: 9999px;
+}
+
+.preview-tag.tag-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.preview-tag.tag-perishable {
+  color: #1e40af;
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .intake-metrics-card {
@@ -360,6 +449,7 @@ select.form-control {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  width: 100%;
 }
 
 .metric-row {
@@ -368,11 +458,18 @@ select.form-control {
   align-items: center;
   font-size: 0.82rem;
   color: #52525b;
+  gap: 0.5rem;
+}
+
+.metric-label {
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .metric-val {
   font-weight: 700;
   color: #18181b;
+  white-space: nowrap;
 }
 
 .metric-divider {
@@ -409,6 +506,7 @@ select.form-control {
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   margin-top: 0.4rem;
   box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 .btn-dock:hover:not(:disabled) {
@@ -428,8 +526,24 @@ select.form-control {
 
 @media (max-width: 640px) {
   .form-grid-2 {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .form-control {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+
+  .metric-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
+  .metric-val {
+    align-self: flex-start;
   }
 }
 </style>
