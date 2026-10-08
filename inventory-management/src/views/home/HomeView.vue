@@ -22,6 +22,7 @@ import {
   Cpu,
   Store,
   Warehouse,
+  Truck,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -231,16 +232,21 @@ function logout() {
 
         <!-- Navigation Controls -->
         <div class="nav-controls">
-          <RouterLink to="/sales" class="btn btn-secondary">
-            <ShoppingCart :size="15" stroke-width="2.2" />
+          <RouterLink to="/sales" class="btn btn-action-primary">
+            <ShoppingCart :size="14" stroke-width="2.2" />
             <span class="btn-label">Point of Sale</span>
           </RouterLink>
-          <RouterLink to="/stock-in" class="btn btn-action-primary">
-            <PackagePlus :size="15" stroke-width="2.2" />
+          <RouterLink to="/transport" class="btn btn-secondary">
+            <Truck :size="14" stroke-width="2.2" />
+            <span class="btn-label">Goods Transport</span>
+          </RouterLink>
+          <RouterLink to="/stock-in" class="btn btn-secondary">
+            <PackagePlus :size="14" stroke-width="2.2" />
             <span class="btn-label">Receive PO</span>
           </RouterLink>
-          <button class="btn btn-icon" title="Sign Out" aria-label="Sign Out" @click="logout">
-            <LogOut :size="15" stroke-width="2.2" />
+          <button class="btn btn-secondary btn-signout" title="Sign Out" aria-label="Sign Out" @click="logout">
+            <LogOut :size="14" stroke-width="2.2" />
+            <span class="btn-label signout-text">Sign Out</span>
           </button>
         </div>
       </header>

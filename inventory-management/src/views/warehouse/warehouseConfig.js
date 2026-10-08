@@ -7,7 +7,7 @@ export const WAREHOUSE_UI = {
     backButtonMobile: 'Catalog',
     modeStorefront: 'Storefront',
     modeWarehouse: 'Warehouse Hub',
-    dockButton: 'Dock Inbound Freight',
+    dockButton: 'Dock Inbound',
     transferButton: 'Hub Transfer',
     dispatchButton: 'Dispatch to Branch',
   },
