@@ -603,8 +603,8 @@ export const useInventoryStore = defineStore('inventory', () => {
     },
   ])
 
-  // Branch Stocks tied to All Variant IDs: { branchId: { variantId: baseUnitStock } }
-  const branchStocks = ref({
+  // Default Baseline Branch Stocks for Demo Reset
+  const DEFAULT_BRANCH_STOCKS = {
     'b-commissary': {
       'V-1001': 240,
       'V-1002': 180,
@@ -683,7 +683,14 @@ export const useInventoryStore = defineStore('inventory', () => {
       'V-1201': 0,
       'V-1301': 0,
     },
-  })
+  }
+
+  // Branch Stocks tied to All Variant IDs: { branchId: { variantId: baseUnitStock } }
+  const branchStocks = ref(JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS)))
+
+  function resetDemoStocks() {
+    branchStocks.value = JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS))
+  }
 
   // Customer Loyalty List
   const defaultCustomers = [
@@ -841,9 +848,10 @@ export const useInventoryStore = defineStore('inventory', () => {
     }
 
     salesHistory.value.unshift({
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 1000000),
       date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
+      branchId: branchId,
       productName: variant.fullName,
       unit: variant.uom.level1.unit,
       quantity: qty,
@@ -872,5 +880,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     removeCustomer,
     receiveStock,
     recordSale,
+    resetDemoStocks,
   }
 })

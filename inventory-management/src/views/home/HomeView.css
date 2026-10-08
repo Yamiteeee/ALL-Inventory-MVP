@@ -303,9 +303,41 @@
 .nav-controls {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem;
   margin-top: 0.2rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Feedback Alert Banner */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1.4rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.fade-alert-enter-active,
+.fade-alert-leave-active {
+  transition: all 0.25s ease;
+}
+.fade-alert-enter-from,
+.fade-alert-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 /* Buttons */
@@ -459,6 +491,24 @@
   height: 26px;
   background-color: #e4e4e7;
   border-radius: 9999px;
+}
+
+.kpi-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.kpi-link:hover {
+  transform: translateY(-1px);
+}
+
+.kpi-link:hover .kpi-label {
+  color: #18181b;
+}
+
+.po-num {
+  color: #166534;
 }
 
 /* Filter Bar */
@@ -971,6 +1021,7 @@
   }
 
   .btn-signout {
+    grid-column: span 2 !important;
     width: 100% !important;
   }
 

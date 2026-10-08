@@ -2,14 +2,20 @@
 
 export const CATALOG_UI = {
   header: {
-    badge: 'Inventory Core',
+    badge: 'Master Inventory & Logistics Hub',
     title: 'Master Catalog',
-    subtitle: 'Parent families · Variant dimensions · 3-tier UOM packaging',
+    subtitle: 'Parent families · Variant dimensions · 3-tier UOM packaging & multi-branch logistics',
+    receiveButton: 'Receive PO',
+    dockButton: 'Receive PO',
+    transferButton: 'Hub Transfer',
+    dispatchButton: 'Dispatch Store',
+    transportButton: 'Goods Transport',
   },
   kpiLabels: {
     parents: 'Families',
     variants: 'Variants',
     onHand: 'Stock on Hand',
+    poCount: 'PO Received',
   },
   toolbar: {
     searchPlaceholder: 'Search catalog, SKU, flavor, or vendor...',
@@ -31,4 +37,30 @@ export const CATALOG_UI = {
     low: 'Low',
     healthy: 'Nominal',
   },
+  warehouseModals: {
+    intake: {
+      eyebrow: 'Direct Supplier PO Dock',
+      title: 'Inbound PO & Freight Receiving',
+      submitButton: 'Confirm & Receive Freight into Inventory',
+    },
+    transfer: {
+      eyebrow: 'Inter-Warehouse Logistics',
+      title: 'Hub-to-Hub Freight Transfer',
+      submitButton: 'Dispatch Inter-Warehouse Freight',
+    },
+    dispatch: {
+      eyebrow: 'Storefront Replenishment',
+      title: 'Dispatch Freight to Storefront Branch',
+      submitButton: 'Confirm & Dispatch Stock to Branch',
+    },
+    banners: {
+      intake: (qty, tierLabel, variantName, totalUnits, unit, branchName, bay) =>
+        `Docked ${qty} ${tierLabel} of ${variantName} (+${totalUnits} ${unit}) into ${branchName} (${bay})!`,
+      transfer: (totalUnits, unit, variantName, fromName, toName, manifestNo) =>
+        `Relocated ${totalUnits} ${unit} of ${variantName} (${fromName} → ${toName})! [${manifestNo}]`,
+      dispatch: (qty, tierLabel, totalUnits, unit, variantName, originName, destName, manifestNo) =>
+        `Dispatched ${qty} ${tierLabel} (${totalUnits} ${unit}) from ${originName} → ${destName}! [${manifestNo}]`,
+    },
+  },
 }
+

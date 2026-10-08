@@ -1,9 +1,19 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useInventoryStore } from '../../../stores/inventoryStore'
+import { useInventoryStore } from '@/stores/inventoryStore'
+import { CATALOG_UI } from '../catalogConfig'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
-import { ArrowRightLeft, Store, Layers, FileText, AlertCircle, CheckCircle2 } from 'lucide-vue-next'
+import {
+  ArrowRightLeft,
+  Warehouse,
+  Layers,
+  MapPin,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  Truck,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   show: {
@@ -27,80 +37,97 @@ const props = defineProps({
 const emit = defineEmits(['close', 'confirm'])
 const store = useInventoryStore()
 
-// Origin Warehouse (defaults to current selection or commissary)
-const sourceBranchId = ref(
+// Origin Hub
+const sourceWarehouseId = ref(
   props.currentBranchId && props.currentBranchId !== 'all'
     ? props.currentBranchId
     : store.branches[0]?.id || 'b-commissary',
 )
 
-// Destination Store Branch (defaults to first non-source branch)
-const targetBranchId = ref(
-  store.branches.find((b) => b.id !== sourceBranchId.value)?.id || store.branches[1]?.id || '',
+// Destination Hub (defaults to first non-source warehouse)
+const targetWarehouseId = ref(
+  store.branches.find((b) => b.id !== sourceWarehouseId.value)?.id || store.branches[1]?.id || '',
 )
 
-const dispatchVariantId = ref('')
-const dispatchTier = ref('level2') // Default to Level 2 (Master Cartons)
-const dispatchQty = ref(1)
+const transferVariantId = ref('')
+const transferTier = ref('level3') // Default to Level 3 (Full Pallet Lot for warehouse-to-warehouse)
+const transferQty = ref(1)
+const destBay = ref('RACK-D01')
 const manifestNo = ref('')
-const driverNotes = ref('')
+const courierNotes = ref('')
 
+// Synchronize if initial branch changes
 watch(
   () => props.currentBranchId,
   (newId) => {
     if (newId && newId !== 'all') {
-      sourceBranchId.value = newId
+      sourceWarehouseId.value = newId
     }
   },
 )
 
+// Prevent source and destination warehouse from colliding
 watch(
-  () => sourceBranchId.value,
+  () => sourceWarehouseId.value,
   (newSource) => {
-    if (newSource === targetBranchId.value) {
+    if (newSource === targetWarehouseId.value) {
       const alternate = props.branches.find((b) => b.id !== newSource)
-      if (alternate) targetBranchId.value = alternate.id
+      if (alternate) targetWarehouseId.value = alternate.id
     }
   },
 )
 
+// Default to first variant
 watch(
   () => props.variants,
   (newVariants) => {
-    if (newVariants.length && !dispatchVariantId.value) {
-      dispatchVariantId.value = newVariants[0].id
+    if (newVariants.length && !transferVariantId.value) {
+      transferVariantId.value = newVariants[0].id
     }
   },
   { immediate: true },
 )
 
+// Generate a unique transfer manifest number whenever modal opens
 watch(
   () => props.show,
   (isOpen) => {
     if (isOpen) {
-      manifestNo.value = `DSP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+      manifestNo.value = `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
     }
   },
 )
 
 const activeVariant = computed(() => {
-  return props.variants.find((v) => v.id === dispatchVariantId.value) || props.variants[0]
+  return props.variants.find((v) => v.id === transferVariantId.value) || props.variants[0]
 })
 
-// Normalized Option Lists for IosSelect
-const sourceBranchOptions = computed(() => {
+// Auto-adjust default destination bay if product is perishable
+watch(
+  () => activeVariant.value,
+  (variant) => {
+    if (!variant) return
+    destBay.value = variant.isPerishable ? 'BAY-C01' : 'RACK-D01'
+  },
+  { immediate: true },
+)
+
+// Normalized IosSelect options
+const sourceWarehouseOptions = computed(() => {
   return props.branches.map((b) => ({
     value: b.id,
-    label: `${b.name} Warehouse`,
+    label: `${b.name} Hub`,
+    sublabel: 'Source Warehouse',
   }))
 })
 
-const targetBranchOptions = computed(() => {
+const targetWarehouseOptions = computed(() => {
   return props.branches
-    .filter((b) => b.id !== sourceBranchId.value)
+    .filter((b) => b.id !== sourceWarehouseId.value)
     .map((b) => ({
       value: b.id,
-      label: `${b.name} Store`,
+      label: `${b.name} Hub`,
+      sublabel: 'Receiving Warehouse',
     }))
 })
 
@@ -112,51 +139,60 @@ const variantOptions = computed(() => {
   }))
 })
 
-const tierOptions = computed(() => [
-  {
-    value: 'level2',
-    label: 'Level 2: Master Cartons / Boxes',
-    sublabel: 'Standard Branch Restock',
-  },
-  {
-    value: 'level3',
-    label: 'Level 3: Full Pallet Lots',
-    sublabel: 'Bulk Warehouse Pallet Lot',
-  },
-  {
-    value: 'level1',
-    label: 'Level 1: Base Units',
-    sublabel: 'Loose Pieces / Break-Bulk',
-  },
-])
+const tierOptions = computed(() => {
+  const v = activeVariant.value
+  const l1Unit = v?.uom?.level1?.unit || 'unit'
+  const l2Unit = v?.uom?.level2?.unit || 'Box'
+  const l2Mult = v?.uom?.level2?.multiplier || 1
+  const l3Unit = v?.uom?.level3?.unit || 'Pallet'
+  const l3Mult = v?.uom?.level3?.multiplier || 1
 
-// Current available stock in the selected origin warehouse
+  return [
+    {
+      value: 'level3',
+      label: 'Level 3: Full Pallet Lot',
+      sublabel: `1 ${l3Unit} = ${l3Mult} ${l2Unit} (${l3Mult * l2Mult} ${l1Unit})`,
+    },
+    {
+      value: 'level2',
+      label: 'Level 2: Master Cartons / Boxes',
+      sublabel: `1 ${l2Unit} = ${l2Mult} ${l1Unit}`,
+    },
+    {
+      value: 'level1',
+      label: 'Level 1: Base Units',
+      sublabel: `1 ${l1Unit}`,
+    },
+  ]
+})
+
+// Available inventory at origin warehouse
 const availableBaseStock = computed(() => {
   if (!activeVariant.value) return 0
-  const stocks = store.branchStocks?.[sourceBranchId.value] || {}
+  const stocks = store.branchStocks?.[sourceWarehouseId.value] || {}
   return stocks[activeVariant.value.id] || 0
 })
 
 const calculatedUnits = computed(() => {
   const v = activeVariant.value
   if (!v) return 0
-  const qty = Number(dispatchQty.value) || 0
+  const qty = Number(transferQty.value) || 0
   const l2Mult = v.uom?.level2?.multiplier || 1
   const l3Mult = v.uom?.level3?.multiplier || 1
 
-  if (dispatchTier.value === 'level3') return qty * l2Mult * l3Mult
-  if (dispatchTier.value === 'level2') return qty * l2Mult
+  if (transferTier.value === 'level3') return qty * l2Mult * l3Mult
+  if (transferTier.value === 'level2') return qty * l2Mult
   return qty
 })
 
 const calculatedBoxes = computed(() => {
   const v = activeVariant.value
   if (!v) return 0
-  const qty = Number(dispatchQty.value) || 0
+  const qty = Number(transferQty.value) || 0
   const l3Mult = v.uom?.level3?.multiplier || 1
 
-  if (dispatchTier.value === 'level3') return qty * l3Mult
-  if (dispatchTier.value === 'level2') return qty
+  if (transferTier.value === 'level3') return qty * l3Mult
+  if (transferTier.value === 'level2') return qty
   return Math.floor(qty / (v.uom?.level2?.multiplier || 1))
 })
 
@@ -167,87 +203,89 @@ const calculatedCBM = computed(() => {
   return (calculatedBoxes.value * cbmPerBox).toFixed(2)
 })
 
-// Source warehouse inventory validation
 const hasSufficientStock = computed(() => {
   return availableBaseStock.value >= calculatedUnits.value
 })
 
 function handleSubmit() {
-  if (dispatchQty.value <= 0 || !activeVariant.value || !hasSufficientStock.value) return
-  if (sourceBranchId.value === targetBranchId.value) return
+  if (transferQty.value <= 0 || !activeVariant.value || !hasSufficientStock.value) return
+  if (sourceWarehouseId.value === targetWarehouseId.value) return
 
   emit('confirm', {
-    fromBranchId: sourceBranchId.value,
-    toBranchId: targetBranchId.value,
+    fromWarehouseId: sourceWarehouseId.value,
+    toWarehouseId: targetWarehouseId.value,
     variant: activeVariant.value,
-    qty: dispatchQty.value,
-    tier: dispatchTier.value,
+    qty: transferQty.value,
+    tier: transferTier.value,
+    destBay: destBay.value,
     totalUnits: calculatedUnits.value,
+    boxes: calculatedBoxes.value,
+    cbm: calculatedCBM.value,
     manifestNo: manifestNo.value,
-    notes: driverNotes.value,
+    notes: courierNotes.value,
   })
 
-  dispatchQty.value = 1
-  driverNotes.value = ''
+  transferQty.value = 1
+  courierNotes.value = ''
 }
 </script>
 
 <template>
   <BaseModal
     :show="show"
-    title="Stock transfer Dispatch"
-    eyebrow="Outbound Restock Manifest"
+    :title="CATALOG_UI.warehouseModals?.transfer?.title || 'Inter-Warehouse Freight Transfer'"
+    :eyebrow="CATALOG_UI.warehouseModals?.transfer?.eyebrow || 'Hub-to-Hub Relocation Manifest'"
     max-width="600px"
     @close="emit('close')"
   >
-    <form @submit.prevent="handleSubmit" class="dispatch-form">
-      <!-- Routing: Origin to Destination (IosSelect) -->
+    <form @submit.prevent="handleSubmit" class="transfer-form">
+      <!-- Hub Routing: Source to Target -->
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
-            <Store :size="12" />
-            <span>Origin Warehouse</span>
+            <Warehouse :size="12" />
+            <span>Origin Warehouse Hub</span>
           </label>
           <IosSelect
-            v-model="sourceBranchId"
-            :options="sourceBranchOptions"
-            title="Select Origin Warehouse"
-            placeholder="Choose Warehouse"
+            v-model="sourceWarehouseId"
+            :options="sourceWarehouseOptions"
+            title="Select Origin Hub"
+            placeholder="Choose Origin"
           />
         </div>
 
         <div class="input-group">
           <label class="label-with-icon">
-            <Store :size="12" />
-            <span>Destination Branch</span>
+            <Warehouse :size="12" />
+            <span>Destination Hub</span>
           </label>
           <IosSelect
-            v-model="targetBranchId"
-            :options="targetBranchOptions"
-            title="Select Destination Branch Store"
-            placeholder="Choose Branch"
+            v-model="targetWarehouseId"
+            :options="targetWarehouseOptions"
+            title="Select Receiving Hub"
+            placeholder="Choose Destination"
           />
         </div>
       </div>
 
-      <!-- Variant Picker (IosSelect with Live Search) -->
+      <!-- Variant Picker with Stock Pill -->
       <div class="input-group">
         <div class="label-row-split">
-          <label>Product SKU to Dispatch</label>
+          <label>Freight SKU to Relocate</label>
           <span class="stock-pill" :class="{ 'stock-pill-empty': availableBaseStock === 0 }">
-            Available: <strong>{{ availableBaseStock }}</strong>
+            Origin Stock: <strong>{{ availableBaseStock }}</strong>
             {{ activeVariant?.uom?.level1?.unit }}
           </span>
         </div>
         <IosSelect
-          v-model="dispatchVariantId"
+          v-model="transferVariantId"
           :options="variantOptions"
-          title="Select SKU to Dispatch"
-          placeholder="Choose Product Variant"
+          title="Select SKU for Relocation"
+          placeholder="Choose Product SKU"
           searchable
         />
 
-        <!-- Mobile-first Variant Glance Card -->
+        <!-- Active SKU Preview Glance -->
         <div v-if="activeVariant" class="selected-variant-preview">
           <div class="preview-title">{{ activeVariant.fullName }}</div>
           <div class="preview-meta">
@@ -258,32 +296,28 @@ function handleSubmit() {
             <span v-if="activeVariant.sizeCapacity" class="preview-tag">{{
               activeVariant.sizeCapacity
             }}</span>
-            <span class="preview-tag">
-              Origin Balance: {{ availableBaseStock }} {{ activeVariant.uom?.level1?.unit }}
+            <span v-if="activeVariant.isPerishable" class="preview-tag tag-perishable">
+              Cold Chain Logistics
             </span>
           </div>
         </div>
       </div>
 
-      <!-- Dispatch Tier & Quantity -->
+      <!-- Freight Tier & Transfer Quantity -->
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
             <Layers :size="12" />
-            <span>Dispatch Tier</span>
+            <span>Freight Unit Tier</span>
           </label>
-          <IosSelect
-            v-model="dispatchTier"
-            :options="tierOptions"
-            title="Select Freight Dispatch Tier"
-          />
+          <IosSelect v-model="transferTier" :options="tierOptions" title="Select Transfer Tier" />
         </div>
 
         <div class="input-group">
-          <label for="dispatch-qty">Dispatch Quantity</label>
+          <label for="transfer-qty">Transfer Quantity</label>
           <input
-            id="dispatch-qty"
-            v-model.number="dispatchQty"
+            id="transfer-qty"
+            v-model.number="transferQty"
             type="number"
             min="1"
             step="1"
@@ -294,8 +328,22 @@ function handleSubmit() {
         </div>
       </div>
 
-      <!-- Manifest Code & Notes -->
+      <!-- Target Storage Bay & Manifest Number -->
       <div class="form-grid-2">
+        <div class="input-group">
+          <label class="label-with-icon">
+            <MapPin :size="12" />
+            <span>Receiving Bay Allocation</span>
+          </label>
+          <input
+            v-model="destBay"
+            type="text"
+            class="form-control font-mono"
+            placeholder="e.g. BAY-C01 or RACK-D01"
+            required
+          />
+        </div>
+
         <div class="input-group">
           <label class="label-with-icon">
             <FileText :size="12" />
@@ -305,33 +353,37 @@ function handleSubmit() {
             v-model="manifestNo"
             type="text"
             class="form-control font-mono"
-            placeholder="e.g. DSP-2026-1049"
+            placeholder="e.g. TRF-2026-4029"
             required
-          />
-        </div>
-
-        <div class="input-group">
-          <label>Driver / Courier Notes</label>
-          <input
-            v-model="driverNotes"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Route A · Morning Restock"
           />
         </div>
       </div>
 
-      <!-- Live Calculation Card -->
-      <div class="dispatch-metrics-card">
+      <!-- Courier / Inter-hub Logistics Notes -->
+      <div class="input-group">
+        <label class="label-with-icon">
+          <Truck :size="12" />
+          <span>Inter-Hub Logistics & Vehicle Notes</span>
+        </label>
+        <input
+          v-model="courierNotes"
+          type="text"
+          class="form-control"
+          placeholder="e.g. Truck 04 · Scheduled Afternoon Shuttle"
+        />
+      </div>
+
+      <!-- Live Calculation & Deficit Warning Card -->
+      <div class="transfer-metrics-card">
         <div class="metric-row">
-          <span class="metric-label">Deducting from Origin Warehouse:</span>
+          <span class="metric-label">Deducting from Origin Hub:</span>
           <span class="metric-val text-deduct">
             -{{ calculatedUnits }} {{ activeVariant?.uom?.level1?.unit }}
           </span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Crediting to Destination Branch:</span>
-          <span class="metric-val">+{{ calculatedBoxes }} boxes</span>
+          <span class="metric-label">Crediting to Destination Hub:</span>
+          <span class="metric-val">+{{ calculatedBoxes }} master boxes</span>
         </div>
         <div class="metric-divider"></div>
         <div class="metric-row bold-row">
@@ -342,33 +394,35 @@ function handleSubmit() {
         <div v-if="!hasSufficientStock" class="stock-deficit-warning">
           <AlertCircle :size="14" />
           <span
-            >Insufficient stock. Needs {{ calculatedUnits }}, but only
-            {{ availableBaseStock }} left.</span
+            >Insufficient origin stock. Needs {{ calculatedUnits }}, but only
+            {{ availableBaseStock }} available.</span
           >
         </div>
         <div v-else class="stock-sufficient-note">
           <CheckCircle2 :size="14" />
           <span
-            >Stock verified. Remaining after transfer: {{ availableBaseStock - calculatedUnits }}
-            {{ activeVariant?.uom?.level1?.unit }}.</span
+            >Origin stock verified. Remaining after transfer:
+            {{ availableBaseStock - calculatedUnits }} {{ activeVariant?.uom?.level1?.unit }}.</span
           >
         </div>
       </div>
 
       <button
         type="submit"
-        class="btn-dispatch"
-        :disabled="dispatchQty <= 0 || !hasSufficientStock || sourceBranchId === targetBranchId"
+        class="btn-transfer"
+        :disabled="
+          transferQty <= 0 || !hasSufficientStock || sourceWarehouseId === targetWarehouseId
+        "
       >
         <ArrowRightLeft :size="16" />
-        <span>Authorize & Dispatch to Branch</span>
+        <span>{{ CATALOG_UI.warehouseModals?.transfer?.submitButton || 'Authorize Hub-to-Hub Relocation' }}</span>
       </button>
     </form>
   </BaseModal>
 </template>
 
 <style scoped>
-.dispatch-form {
+.transfer-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -384,7 +438,6 @@ function handleSubmit() {
   gap: 0.85rem;
   width: 100%;
   min-width: 0;
-  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -498,7 +551,13 @@ function handleSubmit() {
   color: #18181b;
 }
 
-.dispatch-metrics-card {
+.preview-tag.tag-perishable {
+  color: #1e40af;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.transfer-metrics-card {
   background: #f4f4f5;
   border: 1px solid #e4e4e7;
   border-radius: 18px;
@@ -574,7 +633,7 @@ function handleSubmit() {
   border-top: 1px dashed #bbf7d0;
 }
 
-.btn-dispatch {
+.btn-transfer {
   width: 100%;
   display: flex;
   align-items: center;
@@ -594,13 +653,13 @@ function handleSubmit() {
   box-sizing: border-box;
 }
 
-.btn-dispatch:hover:not(:disabled) {
+.btn-transfer:hover:not(:disabled) {
   background-color: #27272a !important;
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
 }
 
-.btn-dispatch:disabled {
+.btn-transfer:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -616,7 +675,6 @@ function handleSubmit() {
     gap: 0.75rem !important;
   }
 
-  /* iOS virtual keyboard auto-zoom prevention */
   .form-control {
     font-size: 16px !important;
     min-height: 44px;
@@ -639,3 +697,4 @@ function handleSubmit() {
   }
 }
 </style>
+

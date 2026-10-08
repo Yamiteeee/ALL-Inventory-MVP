@@ -1,28 +1,31 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { animate } from 'motion'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { CATALOG_UI } from './catalogConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
 import { useDropdownAnimation } from '@/animations/useDropdownAnimation'
 import IosSelect from '@/components/ui/IosSelect.vue'
+import FloatingDemoHub from '@/components/ui/FloatingDemoHub.vue'
+import WarehouseIntakeModal from './warehouseModals/WarehouseIntakeModal.vue'
+import WarehouseTransferModal from './warehouseModals/WarehouseTransferModal.vue'
+import WarehouseDispatchModal from './warehouseModals/WarehouseDispatchModal.vue'
 
 import {
   Search,
   X,
   ChevronDown,
-  ShoppingCart,
-  PackagePlus,
   LogOut,
   Box,
   Clock,
   ShieldCheck,
   Cpu,
-  Store,
   Warehouse,
   Truck,
+  PackagePlus,
+  ArrowRightLeft,
+  CheckCircle2,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -40,42 +43,102 @@ const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
 // 3. Dropdown Spring Physics Transition
 const { dropdownTransition } = useDropdownAnimation()
 
-const isFlipping = ref(false)
+// Warehouse Logistics Modal Visibility Controls
+const showIntakeModal = ref(false)
+const showTransferModal = ref(false)
+const showDispatchModal = ref(false)
+const successBanner = ref('')
 
-/**
- * Single Smooth Transition from Storefront to Dedicated Warehouse Hub
- */
-async function goToWarehouse() {
-  if (isFlipping.value) return
-  isFlipping.value = true
+// Inbound Freight Intake
+function onIntakeConfirm({ branchId, variant, qty, tier, bay, lot, expiry, poCode, totalUnits }) {
+  const targetBranchId =
+    branchId || (selectedBranchId.value === 'all' ? 'b-commissary' : selectedBranchId.value)
+  const branchName = store.branches.find((b) => b.id === targetBranchId)?.name || 'Warehouse'
+  const poNote = `[${bay} | ${lot}] ${poCode || 'Pallet Dock Delivery'}`
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
-  const flipTargets = '.overview-bar, .scrollable-catalog-viewport'
+  store.receiveStock({
+    branchId: targetBranchId,
+    variantId: variant.id,
+    inputQty: qty,
+    uomTier: tier,
+    supplierNote: poNote,
+    batchExpiry: expiry,
+  })
 
-  try {
-    if (isMobile) {
-      const fadeOut = animate(flipTargets, { opacity: [1, 0.2] }, { duration: 0.12 })
-      await (fadeOut.finished || fadeOut)
-    } else {
-      const flipOut = animate(
-        flipTargets,
-        {
-          opacity: [1, 0.15],
-          transform: [
-            'perspective(1200px) rotateX(0deg) translateY(0px) scale(1)',
-            'perspective(1200px) rotateX(-12deg) translateY(-6px) scale(0.98)',
-          ],
-        },
-        { duration: 0.14, easing: 'ease-in' },
-      )
-      await (flipOut.finished || flipOut)
-    }
-    router.push('/warehouse')
-  } catch {
-    router.push('/warehouse')
-  } finally {
-    isFlipping.value = false
+  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
+  const unit = variant.uom?.level1?.unit || 'units'
+  successBanner.value = `Docked ${qty} ${tierLabel} of ${variant.fullName} (+${totalUnits} ${unit}) into ${branchName} (${bay})!`
+  showIntakeModal.value = false
+
+  setTimeout(() => {
+    successBanner.value = ''
+  }, 4500)
+}
+
+// Inter-Warehouse Transfer
+function onTransferConfirm({ fromWarehouseId, toWarehouseId, variant, totalUnits, manifestNo }) {
+  if (!store.branchStocks[fromWarehouseId]) store.branchStocks[fromWarehouseId] = {}
+  if (!store.branchStocks[toWarehouseId]) store.branchStocks[toWarehouseId] = {}
+
+  store.branchStocks[fromWarehouseId][variant.id] = Math.max(
+    0,
+    (store.branchStocks[fromWarehouseId][variant.id] || 0) - totalUnits,
+  )
+  store.branchStocks[toWarehouseId][variant.id] =
+    (store.branchStocks[toWarehouseId][variant.id] || 0) + totalUnits
+
+  const fromName = store.branches.find((b) => b.id === fromWarehouseId)?.name || fromWarehouseId
+  const toName = store.branches.find((b) => b.id === toWarehouseId)?.name || toWarehouseId
+  const unit = variant.uom?.level1?.unit || 'units'
+
+  successBanner.value = `Relocated ${totalUnits} ${unit} of ${variant.fullName} (${fromName} → ${toName})! [${manifestNo}]`
+  showTransferModal.value = false
+
+  setTimeout(() => {
+    successBanner.value = ''
+  }, 4500)
+}
+
+// Dispatch to Storefront Branch
+function onDispatchConfirm({
+  fromBranchId,
+  toBranchId,
+  variant,
+  qty,
+  tier,
+  totalUnits,
+  manifestNo,
+}) {
+  const originName = store.branches.find((b) => b.id === fromBranchId)?.name || fromBranchId
+  const destName = store.branches.find((b) => b.id === toBranchId)?.name || toBranchId
+
+  if (store.dispatchStock) {
+    store.dispatchStock({
+      fromBranchId,
+      toBranchId,
+      variantId: variant.id,
+      totalUnits,
+      manifestNo,
+    })
+  } else {
+    if (!store.branchStocks[fromBranchId]) store.branchStocks[fromBranchId] = {}
+    if (!store.branchStocks[toBranchId]) store.branchStocks[toBranchId] = {}
+
+    const originStock = store.branchStocks[fromBranchId][variant.id] || 0
+    store.branchStocks[fromBranchId][variant.id] = Math.max(0, originStock - totalUnits)
+
+    const destStock = store.branchStocks[toBranchId][variant.id] || 0
+    store.branchStocks[toBranchId][variant.id] = destStock + totalUnits
   }
+
+  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
+  const unit = variant.uom?.level1?.unit || 'units'
+  successBanner.value = `Dispatched ${qty} ${tierLabel} (${totalUnits} ${unit}) from ${originName} → ${destName}! [${manifestNo}]`
+  showDispatchModal.value = false
+
+  setTimeout(() => {
+    successBanner.value = ''
+  }, 4500)
 }
 
 const selectedBranchId = ref(store.branches[0]?.id || '')
@@ -196,23 +259,11 @@ function logout() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- 1. Top Navigation with View Mode Gateway Switcher -->
+      <!-- 1. Top Navigation with Direct Logistics Actions -->
       <header class="top-nav anim-top">
         <div class="nav-brand">
           <div class="header-eyebrow-row">
             <span class="eyebrow">{{ CATALOG_UI.header.badge }}</span>
-
-            <!-- Mode Switcher Pill -->
-            <div class="view-mode-pill">
-              <button type="button" class="mode-pill-btn active">
-                <Store :size="13" />
-                <span>Storefront</span>
-              </button>
-              <button type="button" class="mode-pill-btn" @click="goToWarehouse">
-                <Warehouse :size="13" />
-                <span>Warehouse Hub</span>
-              </button>
-            </div>
           </div>
 
           <h1 class="page-title">
@@ -230,26 +281,67 @@ function logout() {
           <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
-        <!-- Navigation Controls -->
+        <!-- Navigation Controls: Direct Warehouse Logistics Workflows -->
         <div class="nav-controls">
-          <RouterLink to="/sales" class="btn btn-action-primary">
-            <ShoppingCart :size="14" stroke-width="2.2" />
-            <span class="btn-label">Point of Sale</span>
-          </RouterLink>
-          <RouterLink to="/transport" class="btn btn-secondary">
-            <Truck :size="14" stroke-width="2.2" />
-            <span class="btn-label">Goods Transport</span>
-          </RouterLink>
-          <RouterLink to="/stock-in" class="btn btn-secondary">
+          <!-- 1. Receive PO & Inbound Freight -->
+          <button
+            type="button"
+            class="btn btn-action-primary"
+            title="Receive Supplier PO & Inbound Freight"
+            @click="showIntakeModal = true"
+          >
             <PackagePlus :size="14" stroke-width="2.2" />
-            <span class="btn-label">Receive PO</span>
+            <span class="btn-label">{{ CATALOG_UI.header.receiveButton }}</span>
+          </button>
+
+          <!-- 2. Hub Transfer -->
+          <button
+            type="button"
+            class="btn btn-secondary"
+            title="Inter-Warehouse Transfer"
+            @click="showTransferModal = true"
+          >
+            <Warehouse :size="14" stroke-width="2.2" />
+            <span class="btn-label">{{ CATALOG_UI.header.transferButton }}</span>
+          </button>
+
+          <!-- 3. Dispatch to Store Branch -->
+          <button
+            type="button"
+            class="btn btn-secondary"
+            title="Dispatch to Store Branch"
+            @click="showDispatchModal = true"
+          >
+            <ArrowRightLeft :size="14" stroke-width="2.2" />
+            <span class="btn-label">{{ CATALOG_UI.header.dispatchButton }}</span>
+          </button>
+
+          <!-- 4. Goods Transport Ledger -->
+          <RouterLink to="/transport" class="btn btn-secondary" title="Goods Transportation Ledger">
+            <Truck :size="14" stroke-width="2.2" />
+            <span class="btn-label">{{ CATALOG_UI.header.transportButton }}</span>
           </RouterLink>
-          <button class="btn btn-secondary btn-signout" title="Sign Out" aria-label="Sign Out" @click="logout">
+
+          <!-- 5. Sign Out -->
+          <button
+            class="btn btn-secondary btn-signout"
+            title="Sign Out"
+            aria-label="Sign Out"
+            @click="logout"
+          >
             <LogOut :size="14" stroke-width="2.2" />
             <span class="btn-label signout-text">Sign Out</span>
           </button>
         </div>
       </header>
+
+      <!-- Feedback Alert Banner -->
+      <transition name="fade-alert">
+        <div v-if="successBanner" class="alert alert-success">
+          <CheckCircle2 :size="16" />
+          <span>{{ successBanner }}</span>
+        </div>
+      </transition>
 
       <!-- 2. Overview Bar with IosSelect -->
       <section class="overview-bar anim-stagger flip-surface">
@@ -281,6 +373,15 @@ function logout() {
             <span class="kpi-label">{{ CATALOG_UI.kpiLabels.onHand }}</span>
             <span class="kpi-num emphasized">{{ totalBranchUnits }}</span>
           </div>
+          <div class="kpi-divider"></div>
+          <RouterLink
+            to="/stock-in"
+            class="kpi-item kpi-link"
+            title="Open Supplier PO Inward Receiving Dock"
+          >
+            <span class="kpi-label">{{ CATALOG_UI.kpiLabels.poCount }}</span>
+            <span class="kpi-num po-num">{{ store.stockInHistory?.length || 0 }}</span>
+          </RouterLink>
         </div>
       </section>
 
@@ -502,6 +603,37 @@ function logout() {
         </main>
       </div>
     </div>
+
+    <!-- Warehouse Logistics Modals -->
+    <WarehouseIntakeModal
+      :show="showIntakeModal"
+      :variants="store.flatVariants"
+      :branches="store.branches"
+      :initial-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
+      @close="showIntakeModal = false"
+      @confirm="onIntakeConfirm"
+    />
+
+    <WarehouseTransferModal
+      :show="showTransferModal"
+      :variants="store.flatVariants"
+      :branches="store.branches"
+      :current-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
+      @close="showTransferModal = false"
+      @confirm="onTransferConfirm"
+    />
+
+    <WarehouseDispatchModal
+      :show="showDispatchModal"
+      :variants="store.flatVariants"
+      :branches="store.branches"
+      :current-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
+      @close="showDispatchModal = false"
+      @confirm="onDispatchConfirm"
+    />
+
+    <!-- Floating Demo Sandbox & Satellite Systems Hub -->
+    <FloatingDemoHub />
   </div>
 </template>
 

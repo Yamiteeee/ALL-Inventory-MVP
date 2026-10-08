@@ -453,4 +453,3 @@ function resetFilters() {
 </template>
 
 <style scoped src="./TransportView.css"></style>
-

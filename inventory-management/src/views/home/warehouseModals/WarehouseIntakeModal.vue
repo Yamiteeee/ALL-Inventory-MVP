@@ -1,10 +1,19 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useInventoryStore } from '../../../stores/inventoryStore'
-import { WAREHOUSE_UI } from '../warehouseConfig'
+import { RouterLink } from 'vue-router'
+import { useInventoryStore } from '@/stores/inventoryStore'
+import { CATALOG_UI } from '../catalogConfig'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
-import { Truck, Layers, MapPin, Calendar, FileText, Store } from 'lucide-vue-next'
+import {
+  Layers,
+  MapPin,
+  Calendar,
+  FileText,
+  Store,
+  PackagePlus,
+  ExternalLink,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   show: {
@@ -166,8 +175,8 @@ function handleSubmit() {
 <template>
   <BaseModal
     :show="show"
-    :title="WAREHOUSE_UI.modal.title"
-    :eyebrow="WAREHOUSE_UI.modal.eyebrow"
+    :title="CATALOG_UI.warehouseModals?.intake?.title || 'Inbound Pallet & Lot Intake'"
+    :eyebrow="CATALOG_UI.warehouseModals?.intake?.eyebrow || 'Direct Warehouse PO'"
     max-width="580px"
     @close="emit('close')"
   >
@@ -320,10 +329,20 @@ function handleSubmit() {
         </div>
       </div>
 
-      <button type="submit" class="btn-dock" :disabled="intakeQty <= 0">
-        <Truck :size="16" />
-        <span>{{ WAREHOUSE_UI.modal.submitButton }}</span>
-      </button>
+      <div class="intake-footer-row">
+        <button type="submit" class="btn-dock" :disabled="intakeQty <= 0">
+          <PackagePlus :size="16" />
+          <span>{{
+            CATALOG_UI.warehouseModals?.intake?.submitButton ||
+            'Confirm & Receive Freight into Inventory'
+          }}</span>
+        </button>
+
+        <RouterLink to="/stock-in" class="btn-full-dock-link" @click="emit('close')">
+          <span>Open Full PO Inward Receiving Dock</span>
+          <ExternalLink :size="12" />
+        </RouterLink>
+      </div>
     </form>
   </BaseModal>
 </template>
@@ -518,6 +537,30 @@ function handleSubmit() {
 .btn-dock:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.intake-footer-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.btn-full-dock-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #71717a;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.btn-full-dock-link:hover {
+  color: #18181b;
+  text-decoration: underline;
 }
 
 .font-mono {
