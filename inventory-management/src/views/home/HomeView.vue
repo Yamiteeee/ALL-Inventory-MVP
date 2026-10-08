@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
+import { animate } from 'motion'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { CATALOG_UI } from './catalogConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
@@ -18,19 +19,59 @@ import {
   Clock,
   ShieldCheck,
   Cpu,
+  Store,
+  Warehouse,
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const store = useInventoryStore()
 
-// 1. Run universal entrance animation
+// 1. Initial Page Entrance Spring
 usePageEntrance()
 
-// 2. Start typewriter right after the navbar drops in (~350ms)
+// 2. Typewriter Effect with Morphing Dot
 const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
   CATALOG_UI.header.title,
   { speed: 28, delay: 350 },
 )
+
+const isFlipping = ref(false)
+
+/**
+ * Single Smooth Transition from Storefront to Dedicated Warehouse Hub
+ */
+async function goToWarehouse() {
+  if (isFlipping.value) return
+  isFlipping.value = true
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+  const flipTargets = '.overview-bar, .scrollable-catalog-viewport'
+
+  try {
+    if (isMobile) {
+      const fadeOut = animate(flipTargets, { opacity: [1, 0.2] }, { duration: 0.12 })
+      await (fadeOut.finished || fadeOut)
+    } else {
+      const flipOut = animate(
+        flipTargets,
+        {
+          opacity: [1, 0.15],
+          transform: [
+            'perspective(1200px) rotateX(0deg) translateY(0px) scale(1)',
+            'perspective(1200px) rotateX(-12deg) translateY(-6px) scale(0.98)',
+          ],
+        },
+        { duration: 0.14, easing: 'ease-in' },
+      )
+      await (flipOut.finished || flipOut)
+    }
+    router.push('/warehouse')
+  } catch {
+    router.push('/warehouse')
+  } finally {
+    isFlipping.value = false
+  }
+}
 
 const selectedBranchId = ref(store.branches[0]?.id || '')
 const searchQuery = ref('')
@@ -55,24 +96,38 @@ const computedCatalog = computed(() => {
 
   return store.catalog.map((parent) => {
     const variantsWithStock = parent.variants.map((v) => {
-      const stock = currentStocks[v.id] || 0
-      const boxes = Math.floor(stock / v.uom.level2.multiplier)
-      const pallets = (stock / (v.uom.level2.multiplier * v.uom.level3.multiplier)).toFixed(1)
+      const branchStock = currentStocks[v.id] || 0
+      const boxes = Math.floor(branchStock / (v.uom?.level2?.multiplier || 1))
+      const pallets = (
+        branchStock /
+        ((v.uom?.level2?.multiplier || 1) * (v.uom?.level3?.multiplier || 1))
+      ).toFixed(1)
+
+      const cbmPerUnit = store.calculateCBM(v.dimensions)
+      const totalOccupiedCBM = (boxes * cbmPerUnit).toFixed(2)
+
       return {
         ...v,
-        stock,
+        stock: branchStock,
         boxes,
         pallets,
+        cbm: cbmPerUnit,
+        totalOccupiedCBM,
         autoName: store.generateVariantName(parent, v),
-        cbm: store.calculateCBM(v.dimensions),
       }
     })
 
     const parentTotalUnits = variantsWithStock.reduce((acc, curr) => acc + curr.stock, 0)
+    const parentTotalBoxes = variantsWithStock.reduce((acc, curr) => acc + curr.boxes, 0)
+    const parentTotalPallets = variantsWithStock
+      .reduce((acc, curr) => acc + Number(curr.pallets), 0)
+      .toFixed(1)
 
     return {
       ...parent,
       totalUnits: parentTotalUnits,
+      totalBoxes: parentTotalBoxes,
+      totalPallets: parentTotalPallets,
       variants: variantsWithStock,
     }
   })
@@ -80,9 +135,11 @@ const computedCatalog = computed(() => {
 
 const filteredCatalog = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return computedCatalog.value
+  const list = computedCatalog.value
 
-  return computedCatalog.value
+  if (!q) return list
+
+  return list
     .map((parent) => {
       const parentMatches =
         parent.parentName.toLowerCase().includes(q) ||
@@ -126,25 +183,41 @@ function logout() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- 1. Fixed Header Strip (Animates from top) -->
+      <!-- 1. Top Navigation with View Mode Gateway Switcher -->
       <header class="top-nav anim-top">
         <div class="nav-brand">
-          <span class="eyebrow">{{ CATALOG_UI.header.badge }}</span>
+          <div class="header-eyebrow-row">
+            <span class="eyebrow">{{ CATALOG_UI.header.badge }}</span>
 
-          <!-- Left-aligned zero-shift typewriter layout lock -->
+            <!-- Mode Switcher Pill -->
+            <div class="view-mode-pill">
+              <button type="button" class="mode-pill-btn active">
+                <Store :size="13" />
+                <span>Storefront</span>
+              </button>
+              <button type="button" class="mode-pill-btn" @click="goToWarehouse">
+                <Warehouse :size="13" />
+                <span>Warehouse Hub</span>
+              </button>
+            </div>
+          </div>
+
           <h1 class="page-title">
-            <span class="ghost-reserve" aria-hidden="true">{{ CATALOG_UI.header.title }}</span>
+            <span class="ghost-reserve" aria-hidden="true">{{ CATALOG_UI.header.title }}.</span>
             <span class="typing-active">
               {{ pageTitle }}
-              <span class="typewriter-cursor" :class="{ hidden: isTypingDone }" aria-hidden="true"
-                >|</span
-              >
+              <span v-if="!isTypingDone" class="typewriter-cursor" aria-hidden="true">|</span>
+              <span v-else class="morph-period" aria-hidden="true">
+                <span class="dot-shape"></span>
+                <span class="heart-shape">♥</span>
+              </span>
             </span>
           </h1>
 
           <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
+        <!-- Navigation Controls: Clean POS & PO actions without duplicate ledger buttons -->
         <div class="nav-controls">
           <RouterLink to="/sales" class="btn btn-secondary">
             <ShoppingCart :size="15" stroke-width="2.2" />
@@ -160,17 +233,20 @@ function logout() {
         </div>
       </header>
 
-      <!-- 2. Overview Controls Strip (Staggers in next) -->
-      <section class="overview-bar anim-stagger">
+      <!-- 2. Overview Bar -->
+      <section class="overview-bar anim-stagger flip-surface">
         <div class="selector-field">
-          <span class="selector-tag">Location</span>
+          <span class="selector-tag">Store Branch</span>
           <div class="select-wrapper">
             <select v-model="selectedBranchId" class="minimal-select">
-              <option v-for="b in store.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+              <option v-for="b in store.branches" :key="b.id" :value="b.id">
+                {{ b.name }}
+              </option>
             </select>
           </div>
         </div>
 
+        <!-- Storefront KPIs -->
         <div class="kpi-group">
           <div class="kpi-item">
             <span class="kpi-label">{{ CATALOG_UI.kpiLabels.parents }}</span>
@@ -189,7 +265,7 @@ function logout() {
         </div>
       </section>
 
-      <!-- 3. Search & Segment Controls (Staggers in next) -->
+      <!-- 3. Filter Bar -->
       <section class="filter-bar anim-stagger">
         <div class="search-box">
           <Search :size="16" class="search-icon" />
@@ -220,8 +296,8 @@ function logout() {
         </div>
       </section>
 
-      <!-- 4. Scrollable Catalog Tree (Each parent card springs up in sequence) -->
-      <div class="scrollable-catalog-viewport">
+      <!-- 4. Scrollable Catalog -->
+      <div class="scrollable-catalog-viewport flip-surface">
         <main class="tree-container">
           <article
             v-for="parent in filteredCatalog"
@@ -268,7 +344,7 @@ function logout() {
                 <span class="vendor-label">
                   Vendor: <strong>{{ parent.supplier }}</strong>
                 </span>
-                <span class="unit-badge">{{ parent.totalUnits }} units</span>
+                <span class="unit-badge"> {{ parent.totalUnits }} units </span>
               </div>
             </header>
 
@@ -289,7 +365,7 @@ function logout() {
                   </thead>
                   <tbody>
                     <tr v-for="variant in parent.variants" :key="variant.id">
-                      <!-- SKU -->
+                      <!-- SKU & Location -->
                       <td :data-label="colLabel(0)" class="td-sku">
                         <div>
                           <div class="sku-cell">{{ variant.sku }}</div>
@@ -316,15 +392,15 @@ function logout() {
                         </div>
                       </td>
 
-                      <!-- CBM -->
+                      <!-- Volume & Weight -->
                       <td :data-label="colLabel(2)" class="td-cbm">
                         <div>
-                          <div class="cbm-cell">{{ variant.cbm }} m³</div>
+                          <div class="cbm-cell">{{ variant.cbm }} m³ / unit</div>
                           <div class="ref-sub">{{ variant.dimensions.weightKg }} kg</div>
                         </div>
                       </td>
 
-                      <!-- Packaging Matrix -->
+                      <!-- Packaging Multiplier -->
                       <td :data-label="colLabel(3)" class="td-matrix">
                         <div>
                           <div class="uom-row">
@@ -363,15 +439,12 @@ function logout() {
                             {{ variant.stock }} {{ variant.uom.level1.unit }}
                           </div>
                           <div class="ref-sub">
-                            ~{{ variant.boxes }} {{ variant.uom.level2.unit }} · ~{{
-                              variant.pallets
-                            }}
-                            plt
+                            ~{{ variant.boxes }} boxes · ~{{ variant.pallets }} plt
                           </div>
                         </div>
                       </td>
 
-                      <!-- State Status -->
+                      <!-- Status -->
                       <td :data-label="colLabel(6)" class="td-status">
                         <div>
                           <span v-if="variant.stock === 0" class="status-indicator status-depleted">

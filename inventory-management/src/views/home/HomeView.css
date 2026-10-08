@@ -1004,3 +1004,255 @@
     transition: none !important;
   }
 }
+/* ==========================================================================
+   Storefront vs Central Warehouse Mode Flip Controls
+   ========================================================================== */
+
+.header-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Apple Segmented View Mode Pill */
+.view-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 9999px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+}
+
+.mode-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  touch-action: manipulation;
+}
+
+.mode-pill-btn:hover {
+  color: #18181b;
+}
+
+.mode-pill-btn.active {
+  background: #ffffff;
+  color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Warehouse Tags & Accents */
+.warehouse-accent-tag {
+  background: #18181b !important;
+  color: #ffffff !important;
+}
+
+.warehouse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #18181b !important;
+  color: #ffffff !important;
+  border-color: #18181b !important;
+}
+
+.warehouse-box-sub {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #71717a;
+  margin-left: 0.25rem;
+}
+
+.bay-tag {
+  display: inline-block;
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #f4f4f5;
+  color: #52525b;
+  border: 1px solid #e4e4e7;
+  padding: 0.12rem 0.5rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   3D Flip Physics & Switcher Accents
+   ========================================================================== */
+
+/* Enables 3D perspective rendering and prevents subpixel jitter */
+.flip-surface {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+  transform-origin: center center;
+}
+
+/* Button pill tactile press feel */
+.mode-pill-btn:active {
+  transform: scale(0.95);
+}
+
+.mode-pill-btn.active {
+  background: #ffffff;
+  color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transform: scale(1);
+}
+
+/* Warehouse badge pulse on mode activation */
+.warehouse-badge {
+  animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ==========================================================================
+   3D Flip Physics & Switcher Accents
+   ========================================================================== */
+
+/* Enables 3D perspective rendering and prevents subpixel jitter */
+.flip-surface {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform, opacity;
+  transform-origin: center center;
+}
+
+/* Button pill tactile press feel */
+.mode-pill-btn:active {
+  transform: scale(0.95);
+}
+
+.mode-pill-btn.active {
+  background: #ffffff;
+  color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transform: scale(1);
+}
+
+/* Warehouse badge pulse on mode activation */
+.warehouse-badge {
+  animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+/* Ensure the pill switcher is always on top and clickable */
+.header-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  position: relative;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.view-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 9999px;
+  padding: 0.2rem;
+  gap: 0.2rem;
+  position: relative;
+  z-index: 12;
+  touch-action: manipulation;
+}
+
+.mode-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: transparent;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #71717a;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.mode-pill-btn.active {
+  background: #ffffff;
+  color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Fix mobile Safari & Android touch pass-through */
+@media (max-width: 768px) {
+  /* Bypass WebKit transform-style bug that breaks touch hit-testing */
+  .flip-surface {
+    transform-style: flat !important;
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+  }
+
+  .top-nav {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+  }
+
+  .nav-brand {
+    width: 100%;
+    position: relative;
+    z-index: 10;
+  }
+
+  .nav-controls {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    position: relative;
+    z-index: 5;
+  }
+
+  .nav-controls .btn-icon {
+    grid-column: span 2;
+  }
+}
