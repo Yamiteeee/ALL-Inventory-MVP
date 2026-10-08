@@ -6,13 +6,13 @@ import { useInventoryStore } from '../../stores/inventoryStore'
 import { CATALOG_UI } from './catalogConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
+import { useDropdownAnimation } from '@/animations/useDropdownAnimation'
 import IosSelect from '@/components/ui/IosSelect.vue'
 
 import {
   Search,
   X,
   ChevronDown,
-  ChevronRight,
   ShoppingCart,
   PackagePlus,
   LogOut,
@@ -35,6 +35,9 @@ const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
   CATALOG_UI.header.title,
   { speed: 28, delay: 350 },
 )
+
+// 3. Dropdown Spring Physics Transition
+const { dropdownTransition } = useDropdownAnimation()
 
 const isFlipping = ref(false)
 
@@ -306,7 +309,7 @@ function logout() {
         </div>
       </section>
 
-      <!-- 4. Scrollable Catalog -->
+      <!-- 4. Scrollable Catalog with Smooth Spring Dropdown Transitions -->
       <div class="scrollable-catalog-viewport flip-surface">
         <main class="tree-container">
           <article
@@ -326,12 +329,13 @@ function logout() {
             >
               <div class="node-lead">
                 <div class="chevron-wrap">
+                  <!-- Smooth Rotating Chevron -->
                   <ChevronDown
-                    v-if="expandedParents[parent.parentId]"
                     :size="16"
                     stroke-width="2.5"
+                    class="node-chevron"
+                    :class="{ 'is-collapsed': !expandedParents[parent.parentId] }"
                   />
-                  <ChevronRight v-else :size="16" stroke-width="2.5" />
                 </div>
                 <div class="node-meta">
                   <span class="node-title">{{ parent.parentName }}</span>
@@ -358,124 +362,129 @@ function logout() {
               </div>
             </header>
 
-            <!-- Nested Variants -->
-            <div v-show="expandedParents[parent.parentId]" class="node-body">
-              <div class="table-container">
-                <table class="minimal-table">
-                  <thead>
-                    <tr>
-                      <th
-                        v-for="header in CATALOG_UI.tableHeaders"
-                        :key="header.key"
-                        :style="{ width: header.width }"
-                      >
-                        {{ header.label }}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="variant in parent.variants" :key="variant.id">
-                      <!-- SKU & Location -->
-                      <td :data-label="colLabel(0)" class="td-sku">
-                        <div>
-                          <div class="sku-cell">{{ variant.sku }}</div>
-                          <div class="ref-sub">{{ variant.supplierItemNo }}</div>
-                        </div>
-                      </td>
+            <!-- Nested Variants Dropdown with JS Spring Transition -->
+            <Transition v-bind="dropdownTransition">
+              <div v-show="expandedParents[parent.parentId]" class="node-body">
+                <div class="table-container">
+                  <table class="minimal-table">
+                    <thead>
+                      <tr>
+                        <th
+                          v-for="header in CATALOG_UI.tableHeaders"
+                          :key="header.key"
+                          :style="{ width: header.width }"
+                        >
+                          {{ header.label }}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="variant in parent.variants" :key="variant.id">
+                        <!-- SKU & Location -->
+                        <td :data-label="colLabel(0)" class="td-sku">
+                          <div>
+                            <div class="sku-cell">{{ variant.sku }}</div>
+                            <div class="ref-sub">{{ variant.supplierItemNo }}</div>
+                          </div>
+                        </td>
 
-                      <!-- Specs -->
-                      <td :data-label="colLabel(1)" class="td-specs">
-                        <div>
-                          <div class="title-cell">{{ variant.autoName }}</div>
-                          <div class="desc-sub">
-                            <span v-if="variant.flavor">{{ variant.flavor }} · </span>
-                            <span v-if="variant.color">{{ variant.color }} · </span>
-                            <span>{{ variant.sizeCapacity }}</span>
-                            <span v-if="variant.shelfLifeDays">
-                              · {{ variant.shelfLifeDays }}d shelf
+                        <!-- Specs -->
+                        <td :data-label="colLabel(1)" class="td-specs">
+                          <div>
+                            <div class="title-cell">{{ variant.autoName }}</div>
+                            <div class="desc-sub">
+                              <span v-if="variant.flavor">{{ variant.flavor }} · </span>
+                              <span v-if="variant.color">{{ variant.color }} · </span>
+                              <span>{{ variant.sizeCapacity }}</span>
+                              <span v-if="variant.shelfLifeDays">
+                                · {{ variant.shelfLifeDays }}d shelf
+                              </span>
+                            </div>
+                            <div v-if="variant.warranty" class="hardware-note">
+                              <Cpu :size="12" />
+                              <span>{{ variant.machineSpecs }} ({{ variant.warranty }})</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Volume & Weight -->
+                        <td :data-label="colLabel(2)" class="td-cbm">
+                          <div>
+                            <div class="cbm-cell">{{ variant.cbm }} m³ / unit</div>
+                            <div class="ref-sub">{{ variant.dimensions.weightKg }} kg</div>
+                          </div>
+                        </td>
+
+                        <!-- Packaging Multiplier -->
+                        <td :data-label="colLabel(3)" class="td-matrix">
+                          <div>
+                            <div class="uom-row">
+                              <span class="lvl">L1</span> 1 {{ variant.uom.level1.unit }}
+                              <span v-if="variant.uom.level1.pcsPerUnit > 1" class="text-tertiary">
+                                ({{ variant.uom.level1.pcsPerUnit }} pcs)
+                              </span>
+                            </div>
+                            <div class="uom-row">
+                              <span class="lvl">L2</span> 1 {{ variant.uom.level2.unit }} =
+                              {{ variant.uom.level2.multiplier }} L1
+                            </div>
+                            <div class="uom-row">
+                              <span class="lvl">L3</span> 1 {{ variant.uom.level3.unit }} =
+                              {{ variant.uom.level3.multiplier }} L2
+                            </div>
+                            <div v-if="variant.uom.bundle?.enabled" class="bundle-note">
+                              <Box :size="11" />
+                              <span>
+                                {{ variant.uom.bundle.label }} ({{ variant.uom.bundle.qtyOfLvl1 }}
+                                units)
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Unit Cost -->
+                        <td :data-label="colLabel(4)" class="cost-cell td-cost">
+                          ₱{{ variant.baseCost.toFixed(2) }}
+                        </td>
+
+                        <!-- Stock Counts -->
+                        <td :data-label="colLabel(5)" class="td-stock">
+                          <div>
+                            <div class="stock-primary">
+                              {{ variant.stock }} {{ variant.uom.level1.unit }}
+                            </div>
+                            <div class="ref-sub">
+                              ~{{ variant.boxes }} boxes · ~{{ variant.pallets }} plt
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Status -->
+                        <td :data-label="colLabel(6)" class="td-status">
+                          <div>
+                            <span
+                              v-if="variant.stock === 0"
+                              class="status-indicator status-depleted"
+                            >
+                              {{ CATALOG_UI.statusLabels.out }}
+                            </span>
+                            <span
+                              v-else-if="variant.stock <= 10"
+                              class="status-indicator status-warning"
+                            >
+                              {{ CATALOG_UI.statusLabels.low }}
+                            </span>
+                            <span v-else class="status-indicator status-nominal">
+                              {{ CATALOG_UI.statusLabels.healthy }}
                             </span>
                           </div>
-                          <div v-if="variant.warranty" class="hardware-note">
-                            <Cpu :size="12" />
-                            <span>{{ variant.machineSpecs }} ({{ variant.warranty }})</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <!-- Volume & Weight -->
-                      <td :data-label="colLabel(2)" class="td-cbm">
-                        <div>
-                          <div class="cbm-cell">{{ variant.cbm }} m³ / unit</div>
-                          <div class="ref-sub">{{ variant.dimensions.weightKg }} kg</div>
-                        </div>
-                      </td>
-
-                      <!-- Packaging Multiplier -->
-                      <td :data-label="colLabel(3)" class="td-matrix">
-                        <div>
-                          <div class="uom-row">
-                            <span class="lvl">L1</span> 1 {{ variant.uom.level1.unit }}
-                            <span v-if="variant.uom.level1.pcsPerUnit > 1" class="text-tertiary">
-                              ({{ variant.uom.level1.pcsPerUnit }} pcs)
-                            </span>
-                          </div>
-                          <div class="uom-row">
-                            <span class="lvl">L2</span> 1 {{ variant.uom.level2.unit }} =
-                            {{ variant.uom.level2.multiplier }} L1
-                          </div>
-                          <div class="uom-row">
-                            <span class="lvl">L3</span> 1 {{ variant.uom.level3.unit }} =
-                            {{ variant.uom.level3.multiplier }} L2
-                          </div>
-                          <div v-if="variant.uom.bundle?.enabled" class="bundle-note">
-                            <Box :size="11" />
-                            <span>
-                              {{ variant.uom.bundle.label }} ({{ variant.uom.bundle.qtyOfLvl1 }}
-                              units)
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <!-- Unit Cost -->
-                      <td :data-label="colLabel(4)" class="cost-cell td-cost">
-                        ₱{{ variant.baseCost.toFixed(2) }}
-                      </td>
-
-                      <!-- Stock Counts -->
-                      <td :data-label="colLabel(5)" class="td-stock">
-                        <div>
-                          <div class="stock-primary">
-                            {{ variant.stock }} {{ variant.uom.level1.unit }}
-                          </div>
-                          <div class="ref-sub">
-                            ~{{ variant.boxes }} boxes · ~{{ variant.pallets }} plt
-                          </div>
-                        </div>
-                      </td>
-
-                      <!-- Status -->
-                      <td :data-label="colLabel(6)" class="td-status">
-                        <div>
-                          <span v-if="variant.stock === 0" class="status-indicator status-depleted">
-                            {{ CATALOG_UI.statusLabels.out }}
-                          </span>
-                          <span
-                            v-else-if="variant.stock <= 10"
-                            class="status-indicator status-warning"
-                          >
-                            {{ CATALOG_UI.statusLabels.low }}
-                          </span>
-                          <span v-else class="status-indicator status-nominal">
-                            {{ CATALOG_UI.statusLabels.healthy }}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            </Transition>
           </article>
 
           <div v-if="filteredCatalog.length === 0" class="empty-state">

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useInventoryStore } from '../../stores/inventoryStore'
-import { WAREHOUSE_UI } from './warehouseConfig'
+import { useInventoryStore } from '../../../stores/inventoryStore'
+import { WAREHOUSE_UI } from '../warehouseConfig'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
 import { Truck, Layers, MapPin, Calendar, FileText, Store } from 'lucide-vue-next'
@@ -220,7 +220,7 @@ function handleSubmit() {
         <div class="input-group">
           <label class="label-with-icon">
             <Layers :size="12" />
-            <span>Freight Unit Tier</span>
+            <span>UOM</span>
           </label>
           <IosSelect
             v-model="intakeTier"

@@ -1,12 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
-import { usePageEntrance } from '@/animations/usePageEntrance'
+import { usePageEntrance, animateTableTransition } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
 import { WAREHOUSE_UI } from './warehouseConfig'
-import WarehouseIntakeModal from './WarehouseIntakeModal.vue'
-import WarehouseDispatchModal from './WarehouseDispatchModal.vue'
+import WarehouseIntakeModal from './warehouseLogic/WarehouseIntakeModal.vue'
+import WarehouseDispatchModal from './warehouseLogic/WarehouseDispatchModal.vue'
+import WarehouseTransferModal from './warehouseLogic/WarehouseTransferModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
 
 import {
@@ -29,6 +30,11 @@ import {
 const router = useRouter()
 const store = useInventoryStore()
 
+// Modal Visibility Controls
+const showIntakeModal = ref(false)
+const showTransferModal = ref(false)
+const showDispatchModal = ref(false)
+
 // 1. Universal Entrance Physics
 usePageEntrance()
 
@@ -46,23 +52,25 @@ const selectedZone = ref('all')
 const statusFilter = ref('all')
 const successBanner = ref('')
 
-// Modal Visibility Controls
-const showIntakeModal = ref(false)
-const showDispatchModal = ref(false)
+// 3. Trigger Spring Cascade on Status Filter, Zone, and Branch Switches
+watch([statusFilter, selectedZone, selectedBranchId], async () => {
+  await nextTick()
+  animateTableTransition('.anim-row')
+})
 
 const currentBranch = computed(() => {
   return store.branches.find((b) => b.id === selectedBranchId.value)
 })
 
-// Normalized Branch Options for IosSelect
+// Normalized Branch Options for IosSelect from config
 const branchOptions = computed(() => [
   ...store.branches.map((b) => ({
     value: b.id,
-    label: `${b.name} Warehouse`,
+    label: `${b.name} ${WAREHOUSE_UI.overview.warehouseSuffix}`,
   })),
   {
     value: 'all',
-    label: 'All Warehouses (Combined)',
+    label: WAREHOUSE_UI.overview.allWarehousesLabel,
   },
 ])
 
@@ -194,8 +202,49 @@ function onIntakeConfirm({ branchId, variant, qty, tier, bay, lot, expiry, poCod
     batchExpiry: expiry,
   })
 
-  successBanner.value = `Docked ${qty} ${tier === 'level3' ? 'pallets' : 'boxes'} of ${variant.fullName} (+${totalUnits} ${variant.uom?.level1?.unit}) into ${branchName} (${bay})!`
+  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
+  const unit = variant.uom?.level1?.unit || 'units'
+  successBanner.value = WAREHOUSE_UI.banners.intake(
+    qty,
+    tierLabel,
+    variant.fullName,
+    totalUnits,
+    unit,
+    branchName,
+    bay,
+  )
   showIntakeModal.value = false
+
+  setTimeout(() => {
+    successBanner.value = ''
+  }, 4500)
+}
+
+// Inter-Warehouse Transfer Event Handler
+function onTransferConfirm({ fromWarehouseId, toWarehouseId, variant, totalUnits, manifestNo }) {
+  if (!store.branchStocks[fromWarehouseId]) store.branchStocks[fromWarehouseId] = {}
+  if (!store.branchStocks[toWarehouseId]) store.branchStocks[toWarehouseId] = {}
+
+  store.branchStocks[fromWarehouseId][variant.id] = Math.max(
+    0,
+    (store.branchStocks[fromWarehouseId][variant.id] || 0) - totalUnits,
+  )
+  store.branchStocks[toWarehouseId][variant.id] =
+    (store.branchStocks[toWarehouseId][variant.id] || 0) + totalUnits
+
+  const fromName = store.branches.find((b) => b.id === fromWarehouseId)?.name || fromWarehouseId
+  const toName = store.branches.find((b) => b.id === toWarehouseId)?.name || toWarehouseId
+  const unit = variant.uom?.level1?.unit || 'units'
+
+  successBanner.value = WAREHOUSE_UI.banners.transfer(
+    totalUnits,
+    unit,
+    variant.fullName,
+    fromName,
+    toName,
+    manifestNo,
+  )
+  showTransferModal.value = false
 
   setTimeout(() => {
     successBanner.value = ''
@@ -234,7 +283,18 @@ function onDispatchConfirm({
     store.branchStocks[toBranchId][variant.id] = destStock + totalUnits
   }
 
-  successBanner.value = `Dispatched ${qty} ${tier === 'level3' ? 'pallets' : 'boxes'} (${totalUnits} ${variant.uom?.level1?.unit}) from ${originName} → ${destName}! [${manifestNo}]`
+  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
+  const unit = variant.uom?.level1?.unit || 'units'
+  successBanner.value = WAREHOUSE_UI.banners.dispatch(
+    qty,
+    tierLabel,
+    totalUnits,
+    unit,
+    variant.fullName,
+    originName,
+    destName,
+    manifestNo,
+  )
   showDispatchModal.value = false
 
   setTimeout(() => {
@@ -253,18 +313,18 @@ function onDispatchConfirm({
             <button type="button" class="back-btn" @click="goToStorefront">
               <ArrowLeft :size="13" stroke-width="2.5" />
               <span class="back-text-desktop">{{ WAREHOUSE_UI.header.backButton }}</span>
-              <span class="back-text-mobile">Catalog</span>
+              <span class="back-text-mobile">{{ WAREHOUSE_UI.header.backButtonMobile }}</span>
             </button>
 
             <!-- Mode Switcher Pill -->
             <div class="view-mode-pill">
               <button type="button" class="mode-pill-btn" @click="goToStorefront">
                 <Store :size="13" />
-                <span>Storefront</span>
+                <span>{{ WAREHOUSE_UI.header.modeStorefront }}</span>
               </button>
               <button type="button" class="mode-pill-btn active">
                 <Warehouse :size="13" />
-                <span>Warehouse Hub</span>
+                <span>{{ WAREHOUSE_UI.header.modeWarehouse }}</span>
               </button>
             </div>
           </div>
@@ -282,24 +342,30 @@ function onDispatchConfirm({
           </h1>
 
           <p class="page-subtitle">
-            <span v-if="selectedBranchId !== 'all'">{{ currentBranch?.name }} Warehouse</span>
-            <span v-else>All Branch Warehouses (Consolidated)</span>
-            · Inbound Lots, Pallet Multipliers & Cubic Volume Allocations
+            <span v-if="selectedBranchId !== 'all'">{{ currentBranch?.name }} {{ WAREHOUSE_UI.overview.warehouseSuffix }}</span>
+            <span v-else>{{ WAREHOUSE_UI.header.subtitleAll }}</span>
+            · {{ WAREHOUSE_UI.header.subtitleSuffix }}
           </p>
         </div>
 
-        <!-- Action Controls -->
+        <!-- Action Controls: 3 Workflows -->
         <div class="nav-controls">
+          <!-- 1. Dock Inbound Freight -->
           <button type="button" class="btn btn-action-primary" @click="showIntakeModal = true">
-            <Truck :size="15" stroke-width="2.2" />
+            <Truck :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ WAREHOUSE_UI.header.dockButton }}</span>
           </button>
 
+          <!-- 2. Inter-Warehouse Transfer -->
+          <button type="button" class="btn btn-secondary" @click="showTransferModal = true">
+            <Warehouse :size="14" stroke-width="2.2" />
+            <span class="btn-label">{{ WAREHOUSE_UI.header.transferButton }}</span>
+          </button>
+
+          <!-- 3. Dispatch to Store Branch -->
           <button type="button" class="btn btn-secondary" @click="showDispatchModal = true">
-            <ArrowRightLeft :size="15" stroke-width="2.2" />
-            <span class="btn-label">{{
-              WAREHOUSE_UI.header.dispatchButton || 'Dispatch to Branch'
-            }}</span>
+            <ArrowRightLeft :size="14" stroke-width="2.2" />
+            <span class="btn-label">{{ WAREHOUSE_UI.header.dispatchButton }}</span>
           </button>
         </div>
       </header>
@@ -312,25 +378,25 @@ function onDispatchConfirm({
         </div>
       </transition>
 
-      <!-- 2. Overview Bar (Powered by IosSelect) -->
+      <!-- 2. Overview Bar -->
       <section class="overview-bar anim-stagger">
         <div class="overview-controls-cluster">
-          <!-- Branch Selector (IosSelect) -->
+          <!-- Branch Selector -->
           <div class="selector-field branch-selector-field">
-            <span class="selector-tag">Branch</span>
+            <span class="selector-tag">{{ WAREHOUSE_UI.overview.branchLabel }}</span>
             <div class="branch-ios-select-wrap">
               <IosSelect
                 v-model="selectedBranchId"
                 :options="branchOptions"
-                title="Select Branch Warehouse"
-                placeholder="Choose Branch Warehouse"
+                :title="WAREHOUSE_UI.overview.branchSelectTitle"
+                :placeholder="WAREHOUSE_UI.overview.branchSelectPlaceholder"
               />
             </div>
           </div>
 
           <!-- Storage Zone -->
           <div class="selector-field">
-            <span class="selector-tag">Zone</span>
+            <span class="selector-tag">{{ WAREHOUSE_UI.overview.zoneLabel }}</span>
             <div class="segmented-control zone-segmented">
               <button
                 v-for="zone in WAREHOUSE_UI.zones"
@@ -350,17 +416,17 @@ function onDispatchConfirm({
         <div class="kpi-group">
           <div class="kpi-item">
             <span class="kpi-label">{{ WAREHOUSE_UI.kpis.pallets }}</span>
-            <span class="kpi-num emphasized">{{ totalPallets }} plt</span>
+            <span class="kpi-num emphasized">{{ totalPallets }} {{ WAREHOUSE_UI.kpiUnits.pallets }}</span>
           </div>
           <div class="kpi-divider"></div>
           <div class="kpi-item">
             <span class="kpi-label">{{ WAREHOUSE_UI.kpis.cartons }}</span>
-            <span class="kpi-num">{{ totalBoxes }} bx</span>
+            <span class="kpi-num">{{ totalBoxes }} {{ WAREHOUSE_UI.kpiUnits.cartons }}</span>
           </div>
           <div class="kpi-divider"></div>
           <div class="kpi-item">
             <span class="kpi-label">{{ WAREHOUSE_UI.kpis.volume }}</span>
-            <span class="kpi-num">{{ totalCBM }} m³</span>
+            <span class="kpi-num">{{ totalCBM }} {{ WAREHOUSE_UI.kpiUnits.volume }}</span>
           </div>
           <div class="kpi-divider"></div>
           <div class="kpi-item">
@@ -372,7 +438,7 @@ function onDispatchConfirm({
         </div>
       </section>
 
-      <!-- 3. Search & Filter Bar -->
+      <!-- 3. Search & Status Filter Bar -->
       <section class="filter-bar anim-stagger">
         <div class="search-box">
           <Search :size="16" class="search-icon" />
@@ -393,6 +459,7 @@ function onDispatchConfirm({
           </button>
         </div>
 
+        <!-- Status Filter Segmented Control -->
         <div class="segmented-control status-segmented">
           <button
             v-for="status in WAREHOUSE_UI.statusFilters"
@@ -407,7 +474,7 @@ function onDispatchConfirm({
         </div>
       </section>
 
-      <!-- 4. Scrollable Warehouse Item Ledger Table -->
+      <!-- 4. Scrollable Ledger Table -->
       <div class="scrollable-warehouse-viewport">
         <main class="ledger-container anim-card">
           <div class="table-container">
@@ -424,8 +491,8 @@ function onDispatchConfirm({
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in filteredItems" :key="item.id">
-                  <td data-label="Bay & Lot" class="td-bay">
+                <tr v-for="item in filteredItems" :key="item.id" class="anim-row">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[0].label" class="td-bay">
                     <div>
                       <div class="bay-badge" :class="`bay-${item.zoneType}`">
                         <MapPin :size="11" />
@@ -435,14 +502,14 @@ function onDispatchConfirm({
                     </div>
                   </td>
 
-                  <td data-label="Master SKU" class="td-sku">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[1].label" class="td-sku">
                     <div>
                       <div class="sku-cell">{{ item.sku }}</div>
                       <div class="ref-sub">{{ item.supplierItemNo || 'N/A' }}</div>
                     </div>
                   </td>
 
-                  <td data-label="Product Specs" class="td-specs">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[2].label" class="td-specs">
                     <div>
                       <div class="title-cell">{{ item.fullName }}</div>
                       <div class="desc-sub">
@@ -453,11 +520,11 @@ function onDispatchConfirm({
                       <div class="tag-row mt-1">
                         <span v-if="item.isPerishable" class="tag tag-muted">
                           <Clock :size="10" />
-                          Cold Chain
+                          {{ WAREHOUSE_UI.tags.coldChain }}
                         </span>
                         <span v-else class="tag tag-muted">
                           <ShieldCheck :size="10" />
-                          Dry Ambient
+                          {{ WAREHOUSE_UI.tags.dryAmbient }}
                         </span>
                         <span v-if="item.machineSpecs" class="tag tag-muted">
                           <Cpu :size="10" />
@@ -467,16 +534,16 @@ function onDispatchConfirm({
                     </div>
                   </td>
 
-                  <td data-label="Occupancy (m³)" class="td-cbm">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[3].label" class="td-cbm">
                     <div>
-                      <div class="cbm-cell">{{ item.occupiedCBM }} m³</div>
+                      <div class="cbm-cell">{{ item.occupiedCBM }} {{ WAREHOUSE_UI.kpiUnits.volume }}</div>
                       <div class="ref-sub">
-                        {{ item.cbmPerBox }} m³/box · {{ item.dimensions?.weightKg || 0 }}kg
+                        {{ item.cbmPerBox }} {{ WAREHOUSE_UI.kpiUnits.volume }}/box · {{ item.dimensions?.weightKg || 0 }}kg
                       </div>
                     </div>
                   </td>
 
-                  <td data-label="Matrix Breakdown" class="td-matrix">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[4].label" class="td-matrix">
                     <div>
                       <div class="uom-row">
                         <span class="lvl">L3</span> 1 Plt =
@@ -493,27 +560,29 @@ function onDispatchConfirm({
                     </div>
                   </td>
 
-                  <td data-label="Bulk Balance" class="td-stock">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[5].label" class="td-stock">
                     <div>
-                      <div class="stock-primary font-mono">{{ item.pallets }} plt</div>
+                      <div class="stock-primary font-mono">{{ item.pallets }} {{ WAREHOUSE_UI.kpiUnits.pallets }}</div>
                       <div class="ref-sub">
                         ~{{ item.boxes }} boxes · {{ item.totalUnits }} {{ item.uom?.level1?.unit }}
                       </div>
                     </div>
                   </td>
 
-                  <td data-label="Status" class="td-status">
+                  <td :data-label="WAREHOUSE_UI.tableHeaders[6].label" class="td-status">
                     <div>
                       <span v-if="item.totalUnits === 0" class="status-indicator status-depleted">
-                        Depleted
+                        {{ WAREHOUSE_UI.statusLabels.depleted }}
                       </span>
                       <span
                         v-else-if="item.totalUnits <= 15"
                         class="status-indicator status-warning"
                       >
-                        Low Stock
+                        {{ WAREHOUSE_UI.statusLabels.low }}
                       </span>
-                      <span v-else class="status-indicator status-nominal">Nominal</span>
+                      <span v-else class="status-indicator status-nominal">
+                        {{ WAREHOUSE_UI.statusLabels.nominal }}
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -540,6 +609,15 @@ function onDispatchConfirm({
       :initial-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
       @close="showIntakeModal = false"
       @confirm="onIntakeConfirm"
+    />
+
+    <WarehouseTransferModal
+      :show="showTransferModal"
+      :variants="rawVariants"
+      :branches="store.branches"
+      :current-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
+      @close="showTransferModal = false"
+      @confirm="onTransferConfirm"
     />
 
     <WarehouseDispatchModal
