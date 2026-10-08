@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { SALES_UI } from './salesConfig'
+import { usePageEntrance } from '@/animations/usePageEntrance'
+import { useTypewriter } from '@/animations/useTypewriter'
 
 // Lucide Vue Next Icons
 import {
@@ -21,6 +23,15 @@ import {
 
 const router = useRouter()
 const store = useInventoryStore()
+
+// 1. Run universal entrance animation
+usePageEntrance()
+
+// 2. Start typewriter right after the top bar settles (~350ms)
+const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
+  SALES_UI.header.title,
+  { speed: 28, delay: 350 },
+)
 
 const selectedBranch = ref(store.branches[0]?.id || '')
 const selectedVariantId = ref(store.flatVariants[0]?.id || '')
@@ -110,16 +121,10 @@ const finalTotal = computed(() => {
   return Math.max(0, subtotal.value - totalDiscountAmount.value)
 })
 
-/**
- * Returns full format on desktop, truncated concise format on mobile
- */
 function formatVariantOptionLabel(p) {
-  // Desktop: original complete label
   if (!isMobile.value) {
     return `${p.fullName} — ₱${p.baseCost.toFixed(2)} / ${p.uom.level1.unit}`
   }
-
-  // Mobile: concise label to keep native picker within screen width
   const brand = p.brand ? `${p.brand} · ` : ''
   const spec = p.flavor || p.color || p.sizeCapacity || ''
   const baseName = p.productName || p.autoName || p.fullName || ''
@@ -182,14 +187,27 @@ function handleCompleteSale() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- Top Header Strip -->
-      <header class="top-nav">
+      <!-- 1. Top Header Strip (Animates from top) -->
+      <header class="top-nav anim-top">
         <div class="nav-brand">
           <button type="button" class="back-btn" @click="goBackToCatalog">
             <ArrowLeft :size="14" stroke-width="2.5" />
             <span>{{ SALES_UI.header.backText }}</span>
           </button>
-          <h1 class="page-title">{{ SALES_UI.header.title }}</h1>
+
+          <!-- Zero-shift layout lock + dot/heart morph loop -->
+          <h1 class="page-title">
+            <span class="ghost-reserve" aria-hidden="true">{{ SALES_UI.header.title }}.</span>
+            <span class="typing-active">
+              {{ pageTitle }}
+              <span v-if="!isTypingDone" class="typewriter-cursor" aria-hidden="true">|</span>
+              <span v-else class="morph-period" aria-hidden="true">
+                <span class="dot-shape"></span>
+                <span class="heart-shape">♥</span>
+              </span>
+            </span>
+          </h1>
+
           <p class="page-subtitle">{{ SALES_UI.header.subtitle }}</p>
         </div>
 
@@ -216,7 +234,7 @@ function handleCompleteSale() {
       </transition>
 
       <!-- Mobile Tab Switcher (Visible only <= 768px) -->
-      <div class="mobile-segmented-bar">
+      <div class="mobile-segmented-bar anim-stagger">
         <button
           type="button"
           class="segment-choice"
@@ -237,10 +255,13 @@ function handleCompleteSale() {
         </button>
       </div>
 
-      <!-- Main Viewport Workspace -->
+      <!-- 2. Two-Column Workspace (Cards pop in with spring physics) -->
       <div class="sales-workspace" :data-active-tab="mobileActiveTab">
-        <!-- Left: Checkout Configurator Form -->
-        <section class="checkout-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'pos' }">
+        <!-- Left: Checkout Configurator Card -->
+        <section
+          class="checkout-card anim-card"
+          :class="{ 'mobile-hidden': mobileActiveTab !== 'pos' }"
+        >
           <div class="card-header">
             <span class="card-title">{{ SALES_UI.form.title }}</span>
             <span class="step-pill">{{ SALES_UI.form.step }}</span>
@@ -284,14 +305,13 @@ function handleCompleteSale() {
               <div v-if="currentVariant" class="selected-variant-preview mobile-only">
                 <div class="preview-title">{{ currentVariant.fullName }}</div>
                 <div class="preview-meta">
-                  <span class="preview-tag tag-mono"
-                    >₱{{ currentVariant.baseCost.toFixed(2) }} /
-                    {{ currentVariant.uom.level1.unit }}</span
-                  >
+                  <span class="preview-tag tag-mono">
+                    ₱{{ currentVariant.baseCost.toFixed(2) }} / {{ currentVariant.uom.level1.unit }}
+                  </span>
                   <span class="preview-tag">{{ currentVariant.category }}</span>
-                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">{{
-                    currentVariant.sizeCapacity
-                  }}</span>
+                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">
+                    {{ currentVariant.sizeCapacity }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -446,8 +466,11 @@ function handleCompleteSale() {
           </form>
         </section>
 
-        <!-- Right: Live Session Ledger -->
-        <section class="ledger-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'ledger' }">
+        <!-- Right: Live Session Ledger Card -->
+        <section
+          class="ledger-card anim-card"
+          :class="{ 'mobile-hidden': mobileActiveTab !== 'ledger' }"
+        >
           <div class="card-header">
             <span class="card-title">{{ SALES_UI.ledger.title }}</span>
             <span class="counter-badge">

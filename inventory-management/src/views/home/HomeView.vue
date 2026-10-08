@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { CATALOG_UI } from './catalogConfig'
+import { usePageEntrance } from '@/animations/usePageEntrance'
+import { useTypewriter } from '@/animations/useTypewriter'
 
 import {
   Search,
@@ -20,6 +22,15 @@ import {
 
 const router = useRouter()
 const store = useInventoryStore()
+
+// 1. Run universal entrance animation
+usePageEntrance()
+
+// 2. Start typewriter right after the navbar drops in (~350ms)
+const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
+  CATALOG_UI.header.title,
+  { speed: 28, delay: 350 },
+)
 
 const selectedBranchId = ref(store.branches[0]?.id || '')
 const searchQuery = ref('')
@@ -115,11 +126,22 @@ function logout() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- Fixed Header Strip -->
-      <header class="top-nav">
+      <!-- 1. Fixed Header Strip (Animates from top) -->
+      <header class="top-nav anim-top">
         <div class="nav-brand">
           <span class="eyebrow">{{ CATALOG_UI.header.badge }}</span>
-          <h1 class="page-title">{{ CATALOG_UI.header.title }}</h1>
+
+          <!-- Left-aligned zero-shift typewriter layout lock -->
+          <h1 class="page-title">
+            <span class="ghost-reserve" aria-hidden="true">{{ CATALOG_UI.header.title }}</span>
+            <span class="typing-active">
+              {{ pageTitle }}
+              <span class="typewriter-cursor" :class="{ hidden: isTypingDone }" aria-hidden="true"
+                >|</span
+              >
+            </span>
+          </h1>
+
           <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
@@ -138,8 +160,8 @@ function logout() {
         </div>
       </header>
 
-      <!-- Overview Controls -->
-      <section class="overview-bar">
+      <!-- 2. Overview Controls Strip (Staggers in next) -->
+      <section class="overview-bar anim-stagger">
         <div class="selector-field">
           <span class="selector-tag">Location</span>
           <div class="select-wrapper">
@@ -167,8 +189,8 @@ function logout() {
         </div>
       </section>
 
-      <!-- Search & Controls -->
-      <section class="filter-bar">
+      <!-- 3. Search & Segment Controls (Staggers in next) -->
+      <section class="filter-bar anim-stagger">
         <div class="search-box">
           <Search :size="16" class="search-icon" />
           <input
@@ -198,10 +220,14 @@ function logout() {
         </div>
       </section>
 
-      <!-- Internal Scrollable Catalog Container -->
+      <!-- 4. Scrollable Catalog Tree (Each parent card springs up in sequence) -->
       <div class="scrollable-catalog-viewport">
         <main class="tree-container">
-          <article v-for="parent in filteredCatalog" :key="parent.parentId" class="parent-node">
+          <article
+            v-for="parent in filteredCatalog"
+            :key="parent.parentId"
+            class="parent-node anim-stagger"
+          >
             <!-- Parent Header -->
             <header
               class="node-header"
@@ -318,9 +344,7 @@ function logout() {
                           <div v-if="variant.uom.bundle?.enabled" class="bundle-note">
                             <Box :size="11" />
                             <span>
-                              {{ variant.uom.bundle.label }} ({{
-                                variant.uom.bundle.qtyOfLvl1
-                              }}
+                              {{ variant.uom.bundle.label }} ({{ variant.uom.bundle.qtyOfLvl1 }}
                               units)
                             </span>
                           </div>

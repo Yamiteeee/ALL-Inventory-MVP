@@ -1,0 +1,28 @@
+/* src/theme.css */
+:root {
+  --bg-canvas: #f8f8fa;
+  --bg-card: #ffffff;
+  --bg-subtle: #f4f4f5;
+  --bg-subtle-hover: #e5e5ea;
+
+  --off-black: #18181b;
+  --off-black-hover: #27272a;
+
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #71717a;
+  --text-placeholder: #a1a1aa;
+
+  --border-light: #e4e4e7;
+  --border-subtle: #f4f4f5;
+  --border-dark: #27272a;
+
+  --radius-pill: 9999px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.06);
+}

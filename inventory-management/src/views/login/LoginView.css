@@ -2,7 +2,8 @@
    Apple Soft-UI Authentication Portal (Off-Black & Squircle)
    ========================================================================== */
 
-:root {
+:root,
+.login-viewport {
   --bg-canvas: #f8f8fa;
   --bg-card: #ffffff;
   --bg-subtle: #f4f4f5;
@@ -35,6 +36,7 @@
   align-items: center;
   justify-content: center;
   background-color: #f8f8fa;
+  background-color: var(--bg-canvas);
   padding: 1.5rem;
   box-sizing: border-box;
   font-family:
@@ -46,9 +48,12 @@
   width: 100%;
   max-width: 440px;
   background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid #e4e4e7;
+  border: 1px solid var(--border-light);
   border-radius: 26px;
   padding: 2.2rem 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   box-shadow: var(--shadow-soft);
   box-sizing: border-box;
 }
@@ -87,12 +92,54 @@
   margin-bottom: 0.45rem;
 }
 
+/* Zero-Shift Layout Lock: Overlays both spans into cell 1x1 */
 .portal-title {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #18181b;
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.portal-title > span {
+  grid-area: 1 / 1;
+}
+
+.ghost-reserve {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.typing-active {
+  width: 100%;
+  text-align: center;
+}
+
+/* Caret Animation */
+.typewriter-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  font-weight: 300;
+  animation: cursorBlink 0.8s infinite;
+}
+
+.typewriter-cursor.hidden {
+  display: none;
+}
+
+@keyframes cursorBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .portal-subtitle {
@@ -192,6 +239,15 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
 }
 
+/* Arrow slide micro-interaction */
+.btn-arrow {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-signin:hover .btn-arrow {
+  transform: translateX(3px);
+}
+
 /* Demo Credentials Card */
 .demo-card {
   margin-top: 1.5rem;
@@ -230,7 +286,10 @@
   font-size: 0.74rem;
   color: #52525b;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
   text-align: left;
 }
 
@@ -238,6 +297,7 @@
   border-color: #18181b;
   background: #fafafc;
   color: #18181b;
+  transform: translateY(-1px);
 }
 
 .chip-role {

@@ -2,7 +2,7 @@
 
 export const LANDING_UI = {
   nav: {
-    brand: 'ALL Group',
+    brand: 'AAL Group',
     portalButton: 'Employee Portal',
   },
   hero: {

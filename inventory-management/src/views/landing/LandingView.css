@@ -452,3 +452,152 @@
     transition: none !important;
   }
 }
+/* Zero-shift layout lock for typewriter */
+.hero-title {
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.hero-title > span {
+  grid-area: 1 / 1;
+}
+
+.ghost-reserve {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.typing-active {
+  width: 100%;
+}
+
+/* Button micro-interaction */
+.btn-arrow {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-action-primary:hover .btn-arrow {
+  transform: translateX(3px);
+}
+
+/* ==========================================================================
+   Typewriter Caret & Dot-Heart Morph Micro-Interaction
+   ========================================================================== */
+
+/* 1. Active Typing Caret (Blinking |) */
+.typewriter-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  font-weight: 300;
+  color: var(--off-black);
+  animation: cursorBlink 0.75s infinite alternate;
+  vertical-align: baseline;
+}
+
+@keyframes cursorBlink {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 2. Container holding the synchronized Dot & Heart */
+.morph-period {
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin-left: 3px;
+  vertical-align: baseline;
+}
+
+.dot-shape,
+.heart-shape {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+/* Apple-style circular punctuation dot */
+.dot-shape {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--off-black);
+  animation: dotPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Vibrant heart that beats and takes over */
+.heart-shape {
+  font-size: 13px;
+  line-height: 1;
+  color: #ef4444; /* Use var(--off-black) if you prefer monochrome */
+  animation: heartPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* 3. Choreographed Loop Keyframes (4.2s Cycle) */
+
+/* Dot keyframes: Visible for 2 seconds -> scales down -> reappears at end */
+@keyframes dotPulseLoop {
+  0%,
+  42% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  48% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  88% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  94%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Heart keyframes: Hidden -> springs in with double pulse -> shrinks out */
+@keyframes heartPulseLoop {
+  0%,
+  42% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  48% {
+    opacity: 1;
+    transform: scale(1.3); /* Spring overshoot */
+  }
+  54% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.22); /* Heartbeat bounce */
+  }
+  66%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}

@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { LOGIN_UI } from './loginConfig'
+import { usePageEntrance } from '@/animations/usePageEntrance'
+import { useTypewriter } from '@/animations/useTypewriter'
 
 // Lucide Vue Next Icons
 import {
@@ -19,6 +21,15 @@ const router = useRouter()
 const employeeId = ref('')
 const password = ref('')
 const errorMessage = ref('')
+
+// 1. Run universal entrance animation
+usePageEntrance()
+
+// 2. Start typewriter right after the card spring settles (~380ms)
+const { displayedText: portalTitle, isComplete: isTypingDone } = useTypewriter(
+  LOGIN_UI.header.title,
+  { speed: 30, delay: 380 },
+)
 
 // In-memory mock employee database
 const employees = [
@@ -55,26 +66,38 @@ function handleLogin() {
 
 <template>
   <div class="login-viewport">
-    <div class="login-card">
-      <!-- Header -->
-      <div class="login-header">
+    <!-- Card springs in with authentic scale & position pop -->
+    <div class="login-card anim-card">
+      <!-- 1. Header (Staggers first) -->
+      <div class="login-header anim-stagger">
         <div class="icon-disc">
           <Lock :size="20" stroke-width="2.2" />
         </div>
         <span class="eyebrow-pill">{{ LOGIN_UI.header.badge }}</span>
-        <h2 class="portal-title">{{ LOGIN_UI.header.title }}</h2>
+
+        <!-- Zero-shift layout lock: preserves card height while title writes out -->
+        <h2 class="portal-title">
+          <span class="ghost-reserve" aria-hidden="true">{{ LOGIN_UI.header.title }}</span>
+          <span class="typing-active">
+            {{ portalTitle }}
+            <span class="typewriter-cursor" :class="{ hidden: isTypingDone }" aria-hidden="true"
+              >|</span
+            >
+          </span>
+        </h2>
+
         <p class="portal-subtitle">{{ LOGIN_UI.header.subtitle }}</p>
       </div>
 
       <!-- Error Alert -->
-      <div v-if="errorMessage" class="error-banner">
+      <div v-if="errorMessage" class="error-banner anim-stagger">
         <AlertCircle :size="16" stroke-width="2.2" class="error-icon" />
         <span>{{ errorMessage }}</span>
       </div>
 
-      <!-- Auth Form -->
+      <!-- Auth Form (Inputs and button stagger sequentially) -->
       <form @submit.prevent="handleLogin" class="login-form">
-        <div class="input-group">
+        <div class="input-group anim-stagger">
           <label for="employeeId" class="label-with-icon">
             <User :size="13" stroke-width="2.2" />
             <span>{{ LOGIN_UI.form.employeeIdLabel }}</span>
@@ -90,7 +113,7 @@ function handleLogin() {
           />
         </div>
 
-        <div class="input-group">
+        <div class="input-group anim-stagger">
           <label for="password" class="label-with-icon">
             <KeyRound :size="13" stroke-width="2.2" />
             <span>{{ LOGIN_UI.form.passwordLabel }}</span>
@@ -106,14 +129,14 @@ function handleLogin() {
           />
         </div>
 
-        <button type="submit" class="btn-signin">
+        <button type="submit" class="btn-signin anim-stagger">
           <span>{{ LOGIN_UI.form.submitButton }}</span>
-          <ArrowRight :size="15" stroke-width="2.2" />
+          <ArrowRight :size="15" stroke-width="2.2" class="btn-arrow" />
         </button>
       </form>
 
       <!-- Clickable Demo Credentials Pill Card -->
-      <div class="demo-card">
+      <div class="demo-card anim-stagger">
         <div class="demo-title">
           <ShieldCheck :size="14" stroke-width="2.2" />
           <span>{{ LOGIN_UI.demoHelpers.title }}</span>
@@ -135,7 +158,7 @@ function handleLogin() {
       </div>
 
       <!-- Return Footer -->
-      <div class="login-footer">
+      <div class="login-footer anim-footer">
         <RouterLink to="/" class="back-link">
           <ArrowLeft :size="13" stroke-width="2.2" />
           <span>{{ LOGIN_UI.footer.backText }}</span>

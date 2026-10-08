@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useInventoryStore } from '../../stores/inventoryStore'
 import { STOCK_IN_UI } from './stockInConfig'
+import { usePageEntrance } from '@/animations/usePageEntrance'
+import { useTypewriter } from '@/animations/useTypewriter'
 
 // Lucide Vue Next Icons
 import {
@@ -19,6 +21,15 @@ import {
 
 const router = useRouter()
 const store = useInventoryStore()
+
+// 1. Run universal entrance animation
+usePageEntrance()
+
+// 2. Start typewriter right after the top bar settles (~350ms)
+const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
+  STOCK_IN_UI.header.title,
+  { speed: 28, delay: 350 },
+)
 
 const selectedBranch = ref(store.branches[0]?.id || '')
 const selectedVariantId = ref(store.flatVariants[0]?.id || '')
@@ -72,16 +83,10 @@ const calculatedBaseUnits = computed(() => {
   return 0
 })
 
-/**
- * Returns full format on desktop, truncated concise format on mobile
- */
 function formatVariantOptionLabel(item) {
-  // Desktop: original complete label
   if (!isMobile.value) {
     return `[${item.category}] ${item.fullName}`
   }
-
-  // Mobile: truncated concise label to prevent picker overflow
   const brand = item.brand ? `${item.brand} · ` : ''
   const spec = item.flavor || item.color || item.sizeCapacity || ''
   const baseName = item.productName || item.autoName || item.fullName || ''
@@ -119,23 +124,36 @@ function handleSubmitStockIn() {
 <template>
   <div class="screen-wrapper">
     <div class="minimal-shell">
-      <!-- Fixed Header Strip -->
-      <header class="top-nav">
+      <!-- 1. Fixed Header Strip (Animates from top) -->
+      <header class="top-nav anim-top">
         <div class="nav-brand">
           <button type="button" class="back-btn" @click="goBackToCatalog">
             <ArrowLeft :size="14" stroke-width="2.5" />
             <span>{{ STOCK_IN_UI.header.backText }}</span>
           </button>
-          <h1 class="page-title">{{ STOCK_IN_UI.header.title }}</h1>
+
+          <!-- Zero-shift layout lock + dot/heart morph loop -->
+          <h1 class="page-title">
+            <span class="ghost-reserve" aria-hidden="true">{{ STOCK_IN_UI.header.title }}.</span>
+            <span class="typing-active">
+              {{ pageTitle }}
+              <span v-if="!isTypingDone" class="typewriter-cursor" aria-hidden="true">|</span>
+              <span v-else class="morph-period" aria-hidden="true">
+                <span class="dot-shape"></span>
+                <span class="heart-shape">♥</span>
+              </span>
+            </span>
+          </h1>
+
           <p class="page-subtitle">{{ STOCK_IN_UI.header.subtitle }}</p>
         </div>
 
         <div class="header-badges">
           <span class="session-badge">
             <Truck :size="13" stroke-width="2.2" />
-            <span
-              >{{ store.stockInHistory?.length || 0 }} {{ STOCK_IN_UI.header.badgeSuffix }}</span
-            >
+            <span>
+              {{ store.stockInHistory?.length || 0 }} {{ STOCK_IN_UI.header.badgeSuffix }}
+            </span>
           </span>
         </div>
       </header>
@@ -149,7 +167,7 @@ function handleSubmitStockIn() {
       </transition>
 
       <!-- Mobile Tab Switcher (Visible only <= 768px) -->
-      <div class="mobile-segmented-bar">
+      <div class="mobile-segmented-bar anim-stagger">
         <button
           type="button"
           class="segment-choice"
@@ -170,10 +188,13 @@ function handleSubmitStockIn() {
         </button>
       </div>
 
-      <!-- Main Two-Column Viewport Workspace -->
+      <!-- 2. Two-Column Viewport Workspace (Cards pop in with spring physics) -->
       <div class="stockin-workspace" :data-active-tab="mobileActiveTab">
-        <!-- Left Column: Intake Entry Form -->
-        <section class="entry-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'form' }">
+        <!-- Left Column: Intake Entry Form Card -->
+        <section
+          class="entry-card anim-card"
+          :class="{ 'mobile-hidden': mobileActiveTab !== 'form' }"
+        >
           <div class="card-header">
             <span class="card-title">{{ STOCK_IN_UI.form.title }}</span>
             <span class="step-pill">{{ STOCK_IN_UI.form.step }}</span>
@@ -217,9 +238,9 @@ function handleSubmitStockIn() {
                 <div class="preview-meta">
                   <span class="preview-tag tag-mono">{{ currentVariant.sku }}</span>
                   <span class="preview-tag">{{ currentVariant.category }}</span>
-                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">{{
-                    currentVariant.sizeCapacity
-                  }}</span>
+                  <span v-if="currentVariant.sizeCapacity" class="preview-tag">
+                    {{ currentVariant.sizeCapacity }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -307,8 +328,11 @@ function handleSubmitStockIn() {
           </form>
         </section>
 
-        <!-- Right Column: Receiving History Log -->
-        <section class="logs-card" :class="{ 'mobile-hidden': mobileActiveTab !== 'logs' }">
+        <!-- Right Column: Receiving History Log Card -->
+        <section
+          class="logs-card anim-card"
+          :class="{ 'mobile-hidden': mobileActiveTab !== 'logs' }"
+        >
           <div class="card-header">
             <span class="card-title">{{ STOCK_IN_UI.logs.title }}</span>
             <span class="counter-badge">

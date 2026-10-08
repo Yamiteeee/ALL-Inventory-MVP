@@ -1,8 +1,9 @@
 <script setup>
 import { RouterLink } from 'vue-router'
 import { LANDING_UI } from './landingConfig'
+import { useTypewriter } from '@/animations/useTypewriter'
+import { usePageEntrance } from '@/animations/usePageEntrance'
 
-// Lucide Vue Next Icons
 import {
   Package,
   Layers,
@@ -20,13 +21,21 @@ const iconMap = {
   ShieldCheck,
   ShoppingCart,
 }
+
+// 1. Spring physics entrance
+usePageEntrance()
+
+// 2. Start typewriter right as the spring finishes its bounce (~450ms)
+const { displayedText: heroTitle, isComplete: isTypingDone } = useTypewriter(
+  LANDING_UI.hero.title,
+  { speed: 28, delay: 450 },
+)
 </script>
 
 <template>
   <div class="landing-viewport">
-    <!-- Main Shell (Constrained Width) -->
     <div class="landing-shell">
-      <!-- Top Navigation -->
+      <!-- 1. Top Navigation -->
       <header class="top-nav">
         <div class="brand">
           <div class="icon-disc">
@@ -41,18 +50,42 @@ const iconMap = {
         </RouterLink>
       </header>
 
-      <!-- Centered Hero Section -->
+      <!-- 2. Hero Section -->
       <main class="hero-section">
         <div class="hero-content">
-          <span class="eyebrow-pill">{{ LANDING_UI.hero.badge }}</span>
-          <h1 class="hero-title">{{ LANDING_UI.hero.title }}</h1>
-          <p class="hero-subtitle">{{ LANDING_UI.hero.subtitle }}</p>
+          <span class="eyebrow-pill hero-stagger">
+            {{ LANDING_UI.hero.badge }}
+          </span>
 
-          <div class="cta-group">
+          <!-- Grid Layer: Prevents text-wrap jerking while typing -->
+          <h1 class="hero-title hero-stagger">
+            <!-- Ghost layout reserve: add a period so space is reserved from frame 1 -->
+            <span class="ghost-reserve" aria-hidden="true">{{ LANDING_UI.hero.title }}.</span>
+
+            <span class="typing-active">
+              {{ heroTitle }}
+
+              <!-- 1. While typing: classic blinking pipe -->
+              <span v-if="!isTypingDone" class="typewriter-cursor" aria-hidden="true">|</span>
+
+              <!-- 2. Finished typing: Dot <-> Heart morphing loop -->
+              <span v-else class="morph-period" aria-hidden="true">
+                <span class="dot-shape"></span>
+                <span class="heart-shape">♥</span>
+              </span>
+            </span>
+          </h1>
+
+          <p class="hero-subtitle hero-stagger">
+            {{ LANDING_UI.hero.subtitle }}
+          </p>
+
+          <div class="cta-group hero-stagger">
             <RouterLink to="/login" class="btn btn-action-primary">
               <span>{{ LANDING_UI.hero.ctaPrimary }}</span>
-              <ArrowRight :size="15" stroke-width="2.2" />
+              <ArrowRight :size="15" stroke-width="2.2" class="btn-arrow" />
             </RouterLink>
+
             <RouterLink to="/login" class="btn btn-secondary">
               <span>{{ LANDING_UI.hero.ctaSecondary }}</span>
             </RouterLink>
@@ -60,7 +93,7 @@ const iconMap = {
         </div>
       </main>
 
-      <!-- Bottom Feature Cards Grid -->
+      <!-- 3. Feature Cards Grid -->
       <section class="features-grid">
         <article v-for="feature in LANDING_UI.features" :key="feature.title" class="feature-card">
           <div class="feature-icon-wrapper">
@@ -72,7 +105,7 @@ const iconMap = {
       </section>
     </div>
 
-    <!-- Full-Width Off-Black Footer Section -->
+    <!-- 4. Full-Width Off-Black Footer -->
     <footer class="landing-footer">
       <div class="footer-container">
         <div class="footer-left">
@@ -106,4 +139,4 @@ const iconMap = {
   </div>
 </template>
 
-<style src="./LandingView.css"></style>
+<style scoped src="./LandingView.css"></style>

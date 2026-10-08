@@ -1,6 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
+// Global design tokens available everywhere
+import './theme.css'
 import App from './App.vue'
 import router from './router'
 
