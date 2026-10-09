@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LandingView from '../views/landing/LandingView.vue'
 import LoginView from '../views/login/LoginView.vue'
 import HomeView from '../views/home/HomeView.vue'
-import StockInView from '../views/stock-in/StockInView.vue'
 import SalesView from '../views/sales/SalesView.vue'
 import TransportView from '../views/transport/TransportView.vue'
 
@@ -11,7 +10,6 @@ const routes = [
   { path: '/login', name: 'login', component: LoginView },
   { path: '/inventory', name: 'inventory', component: HomeView, meta: { requiresAuth: true } },
   { path: '/warehouse', redirect: '/inventory' },
-  { path: '/stock-in', name: 'stock-in', component: StockInView, meta: { requiresAuth: true } },
   { path: '/sales', name: 'sales', component: SalesView, meta: { requiresAuth: true } },
   { path: '/transport', name: 'transport', component: TransportView, meta: { requiresAuth: true } },
   {

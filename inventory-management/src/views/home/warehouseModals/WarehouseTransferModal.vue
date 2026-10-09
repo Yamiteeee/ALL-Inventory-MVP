@@ -1,8 +1,7 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useInventoryStore } from '@/stores/inventoryStore'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
+import { useWarehouseTransfer } from '@/composables/warehouse/useWarehouseTransfer'
 import {
   ArrowRightLeft,
   Warehouse,
@@ -10,7 +9,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Truck,
-  PlusCircle,
   Inbox,
   Send,
   Clock,
@@ -36,205 +34,27 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'confirm'])
-const store = useInventoryStore()
 
-// Navigation Mode: 'queue' (Review & Dispatch Requests) | 'create' (New Request Order) | 'transit' (On the Road)
-const activeTab = ref('queue')
-
-// Origin / Fulfilling Hub context (defaults to current selection or commissary)
-const activeHubId = ref(
-  props.currentBranchId && props.currentBranchId !== 'all'
-    ? props.currentBranchId
-    : store.branches[0]?.id || 'b-commissary',
-)
-
-watch(
-  () => props.currentBranchId,
-  (newId) => {
-    if (newId && newId !== 'all') {
-      activeHubId.value = newId
-    }
-  },
-)
-
-// Dispatch Form Inputs for Active Selected Request
-const selectedRequestId = ref('')
-const dispatchManifestNo = ref('')
-const dispatchCourierNotes = ref('')
-const feedbackBanner = ref('')
-
-// New Request Order Inputs
-const newRequestingBranchId = ref(
-  props.currentBranchId && props.currentBranchId !== 'all'
-    ? props.currentBranchId
-    : store.branches[1]?.id || 'b-downtown',
-)
-const newFulfillingBranchId = ref(store.branches[0]?.id || 'b-commissary')
-const newVariantId = ref(store.flatVariants[0]?.id || '')
-const newTier = ref('level2')
-const newQty = ref(2)
-const newNotes = ref('Storefront inventory shortage / Customer order demand')
-const newHoldSale = ref(true)
-
-// Reactive Filters & Lists
-const hubOptions = computed(() => {
-  return [
-    { value: 'all', label: 'All Warehouses (Global View)' },
-    ...props.branches.map((b) => ({
-      value: b.id,
-      label: `${b.name} Hub`,
-    })),
-  ]
-})
-
-// Pending requests where THIS hub is the fulfilling branch or requesting branch (or all pending if commissary or global)
-const pendingRequestsForThisHub = computed(() => {
-  return (store.transferRequests || []).filter((r) => {
-    if (r.status !== 'pending') return false
-
-    // If 'all' is selected, show every pending request in the system
-    if (!activeHubId.value || activeHubId.value === 'all') return true
-
-    // Show only requests directed to this hub to pack and fulfill
-    return r.fulfillingBranchId === activeHubId.value
-  })
-})
-
-// In-Transit requests involving this hub
-const inTransitRequests = computed(() => {
-  return (store.transferRequests || []).filter((r) => {
-    if (r.status !== 'in_transit') return false
-    if (!activeHubId.value || activeHubId.value === 'all') return true
-    return r.fulfillingBranchId === activeHubId.value || r.requestingBranchId === activeHubId.value
-  })
-})
-
-const activeRequest = computed(() => {
-  if (selectedRequestId.value) {
-    return pendingRequestsForThisHub.value.find((r) => r.id === selectedRequestId.value)
-  }
-  return pendingRequestsForThisHub.value[0] || null
-})
-
-// Auto-select first pending request when list changes
-watch(
-  () => pendingRequestsForThisHub.value,
-  (list) => {
-    if (
-      list.length &&
-      (!selectedRequestId.value || !list.some((r) => r.id === selectedRequestId.value))
-    ) {
-      selectedRequestId.value = list[0].id
-      dispatchManifestNo.value = `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-    }
-  },
-  { immediate: true },
-)
-
-const activeRequestVariant = computed(() => {
-  if (!activeRequest.value) return null
-  return props.variants.find((v) => v.id === activeRequest.value.variantId) || null
-})
-
-const availableStockInHub = computed(() => {
-  if (!activeRequest.value || !activeRequestVariant.value) return 0
-  const stocks = store.branchStocks?.[activeRequest.value.fulfillingBranchId] || {}
-  return stocks[activeRequest.value.variantId] || 0
-})
-
-const hasSufficientStockForRequest = computed(() => {
-  if (!activeRequest.value) return false
-  return availableStockInHub.value >= activeRequest.value.totalUnits
-})
-
-const calculatedCBM = computed(() => {
-  if (!activeRequestVariant.value || !activeRequest.value) return '0.00'
-  const v = activeRequestVariant.value
-  const cbmPerBox = store.calculateCBM ? store.calculateCBM(v.dimensions || {}) : 0.05
-  const boxes =
-    activeRequest.value.tier === 'level3'
-      ? activeRequest.value.qty * (v.uom?.level3?.multiplier || 1)
-      : activeRequest.value.tier === 'level2'
-        ? activeRequest.value.qty
-        : Math.ceil(activeRequest.value.totalUnits / (v.uom?.level2?.multiplier || 1))
-  return (boxes * cbmPerBox).toFixed(2)
-})
-
-function getBranchName(branchId) {
-  return props.branches.find((b) => b.id === branchId)?.name || branchId
-}
-
-// Action: Fulfill & Dispatch Request
-function handleDispatchActiveRequest() {
-  if (!activeRequest.value || !hasSufficientStockForRequest.value) return
-
-  const req = activeRequest.value
-  const variant = activeRequestVariant.value
-
-  store.dispatchTransferRequest(req.id, {
-    manifestNo:
-      dispatchManifestNo.value ||
-      `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-    courierNotes: dispatchCourierNotes.value || 'Scheduled Logistics Delivery',
-  })
-
-  feedbackBanner.value = `Dispatched ${req.id} [${dispatchManifestNo.value}]! Stock deducted from ${getBranchName(req.fulfillingBranchId)} and is now in transit.`
-  dispatchCourierNotes.value = ''
-  selectedRequestId.value = ''
-
-  emit('confirm', {
-    fromWarehouseId: req.fulfillingBranchId,
-    toWarehouseId: req.requestingBranchId,
-    variant,
-    totalUnits: req.totalUnits,
-    manifestNo: dispatchManifestNo.value,
-  })
-
-  setTimeout(() => {
-    feedbackBanner.value = ''
-  }, 4500)
-}
-
-// Action: Create New Request Order
-function handleCreateRequest() {
-  if (!newVariantId.value || newQty.value <= 0) return
-
-  const newReq = store.createTransferRequest({
-    requestingBranchId: newRequestingBranchId.value,
-    fulfillingBranchId: newFulfillingBranchId.value,
-    variantId: newVariantId.value,
-    qty: newQty.value,
-    tier: newTier.value,
-    notes: newNotes.value,
-    holdSale: newHoldSale.value,
-  })
-
-  feedbackBanner.value = `Created Request Order ${newReq.id}! Waiting for ${getBranchName(newFulfillingBranchId.value)} to review and dispatch.`
-  activeTab.value = 'queue'
-  selectedRequestId.value = newReq.id
-
-  setTimeout(() => {
-    feedbackBanner.value = ''
-  }, 4500)
-}
-
-const variantOptions = computed(() => {
-  return props.variants.map((item) => ({
-    value: item.id,
-    label: `${item.brand ? item.brand + ' · ' : ''}${item.parentName || item.productName || item.fullName}`,
-    sublabel: `[${item.sku}] ${item.category || ''} · ${item.flavor || item.color || item.sizeCapacity || ''}`,
-  }))
-})
-
-const tierOptions = computed(() => [
-  {
-    value: 'level2',
-    label: 'Level 2: Master Cartons / Boxes',
-    sublabel: 'Standard Branch Restock',
-  },
-  { value: 'level3', label: 'Level 3: Full Pallet Lot', sublabel: 'Bulk Pallet Shipment' },
-  { value: 'level1', label: 'Level 1: Base Units / Pieces', sublabel: 'Emergency Loose Pack' },
-])
+const {
+  store,
+  activeTab,
+  setActiveTab,
+  activeHubId,
+  hubOptions,
+  selectedRequestId,
+  dispatchManifestNo,
+  dispatchCourierNotes,
+  feedbackBanner,
+  pendingRequestsForThisHub,
+  inTransitRequests,
+  activeRequest,
+  activeRequestVariant,
+  availableStockInHub,
+  hasSufficientStockForRequest,
+  calculatedCBM,
+  getBranchName,
+  handleDispatchActiveRequest,
+} = useWarehouseTransfer(props, emit)
 </script>
 
 <template>
@@ -245,13 +65,13 @@ const tierOptions = computed(() => [
     max-width="660px"
     @close="emit('close')"
   >
-    <!-- Modal Navigation Pill Tabs -->
+    <!-- Modal Navigation Pill Tabs (Streamlined to 2 Logistics Operations) -->
     <div class="transfer-tabs-bar">
       <button
         type="button"
         class="tab-btn"
         :class="{ active: activeTab === 'queue' }"
-        @click="activeTab = 'queue'"
+        @click="setActiveTab('queue')"
       >
         <Inbox :size="14" />
         <span>Fulfillment Queue</span>
@@ -263,18 +83,8 @@ const tierOptions = computed(() => [
       <button
         type="button"
         class="tab-btn"
-        :class="{ active: activeTab === 'create' }"
-        @click="activeTab = 'create'"
-      >
-        <PlusCircle :size="14" />
-        <span>New Request Order</span>
-      </button>
-
-      <button
-        type="button"
-        class="tab-btn"
         :class="{ active: activeTab === 'transit' }"
-        @click="activeTab = 'transit'"
+        @click="setActiveTab('transit')"
       >
         <Truck :size="14" />
         <span>In Transit ({{ inTransitRequests.length }})</span>
@@ -305,11 +115,10 @@ const tierOptions = computed(() => [
           <CheckCircle2 :size="28" />
         </div>
         <h4>No Pending Requests for this Hub</h4>
-        <p>All branch orders are fulfilled. You can create a new request or switch hubs above.</p>
-        <button type="button" class="btn btn-secondary btn-sm" @click="activeTab = 'create'">
-          <PlusCircle :size="14" />
-          <span>Create Branch Request Order</span>
-        </button>
+        <p>
+          All storefront order transfers have been fulfilled. Switch operating hubs above to view
+          other queues.
+        </p>
       </div>
 
       <div v-else class="queue-layout">
@@ -368,18 +177,18 @@ const tierOptions = computed(() => [
             <div class="metric-box">
               <span class="m-label">Requested Quantity</span>
               <span class="m-val">{{ activeRequest.qty }} {{ activeRequest.tier }}</span>
-              <span class="m-sub"
-                >({{ activeRequest.totalUnits }} {{ activeRequestVariant.uom?.level1?.unit }})</span
-              >
+              <span class="m-sub">
+                ({{ activeRequest.totalUnits }} {{ activeRequestVariant.uom?.level1?.unit }})
+              </span>
             </div>
             <div class="metric-box">
               <span class="m-label">Hub Available Stock</span>
               <span class="m-val" :class="{ 'text-danger': !hasSufficientStockForRequest }">
                 {{ availableStockInHub }} {{ activeRequestVariant.uom?.level1?.unit }}
               </span>
-              <span class="m-sub">{{
-                hasSufficientStockForRequest ? 'Sufficient balance' : 'Shortage in hub'
-              }}</span>
+              <span class="m-sub">
+                {{ hasSufficientStockForRequest ? 'Sufficient balance' : 'Shortage in hub' }}
+              </span>
             </div>
             <div class="metric-box">
               <span class="m-label">Transit Volume</span>
@@ -421,10 +230,10 @@ const tierOptions = computed(() => [
 
             <div v-if="!hasSufficientStockForRequest" class="stock-deficit-warning">
               <AlertCircle :size="14" />
-              <span
-                >Cannot dispatch. Hub needs {{ activeRequest.totalUnits }}, but only
-                {{ availableStockInHub }} available.</span
-              >
+              <span>
+                Cannot dispatch. Hub needs {{ activeRequest.totalUnits }}, but only
+                {{ availableStockInHub }} available.
+              </span>
             </div>
 
             <button
@@ -440,84 +249,7 @@ const tierOptions = computed(() => [
       </div>
     </div>
 
-    <!-- TAB 2: CREATE NEW REQUEST ORDER -->
-    <div v-else-if="activeTab === 'create'" class="tab-pane">
-      <form @submit.prevent="handleCreateRequest" class="create-request-form">
-        <div class="form-grid-2">
-          <div class="input-group">
-            <label>Requesting Branch (Who Needs Stock)</label>
-            <IosSelect
-              v-model="newRequestingBranchId"
-              :options="hubOptions"
-              title="Select Requesting Branch"
-            />
-          </div>
-
-          <div class="input-group">
-            <label>Fulfilling Hub (Source of Goods)</label>
-            <IosSelect
-              v-model="newFulfillingBranchId"
-              :options="hubOptions"
-              title="Select Fulfilling Hub"
-            />
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>Product Variant to Request</label>
-          <IosSelect
-            v-model="newVariantId"
-            :options="variantOptions"
-            title="Select SKU to Request"
-            searchable
-          />
-        </div>
-
-        <div class="form-grid-2">
-          <div class="input-group">
-            <label>Packaging Tier</label>
-            <IosSelect v-model="newTier" :options="tierOptions" title="Select Packaging Tier" />
-          </div>
-
-          <div class="input-group">
-            <label>Quantity to Request</label>
-            <input
-              v-model.number="newQty"
-              type="number"
-              min="1"
-              step="1"
-              class="form-control"
-              required
-            />
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>Reason / Demand Notes</label>
-          <input
-            v-model="newNotes"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Walk-in customer order shortage / Weekly store replenishment"
-            required
-          />
-        </div>
-
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input v-model="newHoldSale" type="checkbox" />
-            <span>Mark associated customer sale on hold until this delivery arrives</span>
-          </label>
-        </div>
-
-        <button type="submit" class="btn-create-submit">
-          <PlusCircle :size="16" />
-          <span>Submit Inter-Branch Request Order</span>
-        </button>
-      </form>
-    </div>
-
-    <!-- TAB 3: IN TRANSIT / ON THE ROAD -->
+    <!-- TAB 2: IN TRANSIT / ON THE ROAD -->
     <div v-else-if="activeTab === 'transit'" class="tab-pane">
       <div v-if="inTransitRequests.length === 0" class="empty-requests-state">
         <Truck :size="28" />
@@ -880,8 +612,7 @@ const tierOptions = computed(() => [
   border-radius: 10px;
 }
 
-.btn-fulfill-submit,
-.btn-create-submit {
+.btn-fulfill-submit {
   width: 100%;
   display: flex;
   align-items: center;
@@ -898,34 +629,13 @@ const tierOptions = computed(() => [
   transition: all 0.16s ease;
 }
 
-.btn-fulfill-submit:hover:not(:disabled),
-.btn-create-submit:hover:not(:disabled) {
+.btn-fulfill-submit:hover:not(:disabled) {
   background-color: #27272a;
 }
 
 .btn-fulfill-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.create-request-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.checkbox-group {
-  margin: 0.2rem 0;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #3f3f46;
-  cursor: pointer;
 }
 
 .empty-requests-state {

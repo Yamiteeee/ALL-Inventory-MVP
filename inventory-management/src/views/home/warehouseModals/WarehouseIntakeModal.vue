@@ -1,8 +1,7 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useInventoryStore } from '@/stores/inventoryStore'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import IosSelect from '@/components/ui/IosSelect.vue'
+import { useWarehouseIntake } from '@/composables/warehouse/useWarehouseIntake'
 import {
   Layers,
   MapPin,
@@ -13,8 +12,6 @@ import {
   Truck,
   CheckCircle2,
   Clock,
-  AlertCircle,
-  PlusCircle,
   ArrowRightLeft,
   ShieldCheck,
 } from 'lucide-vue-next'
@@ -39,232 +36,33 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'confirm'])
-const store = useInventoryStore()
 
-// Top Navigation Mode: 'supplier' (PO Freight) | 'incoming' (Transfers to Accept) | 'request' (Order from Branch)
-const activeMode = ref('supplier')
-
-const intakeBranchId = ref(props.initialBranchId || store.branches[0]?.id || '')
-const intakeVariantId = ref('')
-const intakeTier = ref('level3') // Default to Level 3 Pallets
-const intakeQty = ref(1)
-const intakeBay = ref('RACK-D01')
-const intakeLot = ref('LOT-2026-0101')
-const intakeExpiry = ref('')
-const intakePoCode = ref('')
-const intakeFeedback = ref('')
-
-// Quick Restock Request Inputs
-const requestSourceBranchId = ref(store.branches[0]?.id || 'b-commissary')
-const requestVariantId = ref(store.flatVariants[0]?.id || '')
-const requestQty = ref(2)
-const requestTier = ref('level2')
-const requestNotes = ref('Storefront stock shortage / Customer request')
-const requestHoldSale = ref(true)
-
-watch(
-  () => props.initialBranchId,
-  (newId) => {
-    if (newId) intakeBranchId.value = newId
-  },
-)
-
-watch(
-  () => props.variants,
-  (newVariants) => {
-    if (newVariants.length && !intakeVariantId.value) {
-      intakeVariantId.value = newVariants[0].id
-    }
-    if (newVariants.length && !requestVariantId.value) {
-      requestVariantId.value = newVariants[0].id
-    }
-  },
-  { immediate: true },
-)
-
-const activeVariant = computed(() => {
-  return props.variants.find((v) => v.id === intakeVariantId.value) || props.variants[0]
-})
-
-// Auto-adjust default Bay & Lot code when variant changes
-watch(
-  () => activeVariant.value,
-  (variant) => {
-    if (!variant) return
-    intakeBay.value = variant.isPerishable ? 'BAY-C01' : 'RACK-D01'
-    intakeLot.value = `LOT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-  },
-  { immediate: true },
-)
-
-// Normalized options for IosSelect
-const branchOptions = computed(() => {
-  return props.branches.map((b) => ({
-    value: b.id,
-    label: `${b.name} Branch`,
-  }))
-})
-
-const variantOptions = computed(() => {
-  return props.variants.map((item) => ({
-    value: item.id,
-    label: `${item.brand ? item.brand + ' · ' : ''}${item.parentName || item.fullName}`,
-    sublabel: `[${item.sku}] ${item.category || ''} · ${item.flavor || item.color || item.sizeCapacity || ''}`,
-  }))
-})
-
-const tierOptions = computed(() => {
-  const v = activeVariant.value
-  const l1Unit = v?.uom?.level1?.unit || 'unit'
-  const l2Unit = v?.uom?.level2?.unit || 'Box'
-  const l2Mult = v?.uom?.level2?.multiplier || 1
-  const l3Unit = v?.uom?.level3?.unit || 'Pallet'
-  const l3Mult = v?.uom?.level3?.multiplier || 1
-
-  return [
-    {
-      value: 'level3',
-      label: 'Level 3: Full Pallet (Bulk Lot)',
-      sublabel: `1 ${l3Unit} = ${l3Mult} ${l2Unit} (${l3Mult * l2Mult} ${l1Unit})`,
-    },
-    {
-      value: 'level2',
-      label: 'Level 2: Master Carton / Box',
-      sublabel: `1 ${l2Unit} = ${l2Mult} ${l1Unit}`,
-    },
-    {
-      value: 'level1',
-      label: 'Level 1: Base Units',
-      sublabel: `1 ${l1Unit}`,
-    },
-  ]
-})
-
-const calculatedUnits = computed(() => {
-  const v = activeVariant.value
-  if (!v) return 0
-  const qty = Number(intakeQty.value) || 0
-  const l2Mult = v.uom?.level2?.multiplier || 1
-  const l3Mult = v.uom?.level3?.multiplier || 1
-
-  if (intakeTier.value === 'level3') return qty * l2Mult * l3Mult
-  if (intakeTier.value === 'level2') return qty * l2Mult
-  return qty
-})
-
-const calculatedBoxes = computed(() => {
-  const v = activeVariant.value
-  if (!v) return 0
-  const qty = Number(intakeQty.value) || 0
-  const l3Mult = v.uom?.level3?.multiplier || 1
-
-  if (intakeTier.value === 'level3') return qty * l3Mult
-  if (intakeTier.value === 'level2') return qty
-  return Math.floor(qty / (v.uom?.level2?.multiplier || 1))
-})
-
-const calculatedCBM = computed(() => {
-  const v = activeVariant.value
-  if (!v) return '0.00'
-  const cbmPerBox = store.calculateCBM ? store.calculateCBM(v.dimensions || {}) : 0.05
-  return (calculatedBoxes.value * cbmPerBox).toFixed(2)
-})
-
-function getBranchName(branchId) {
-  return props.branches.find((b) => b.id === branchId)?.name || branchId
-}
-
-// Incoming in-transit shipments targeting this branch
-const incomingTransfersForBranch = computed(() => {
-  return (store.transferRequests || []).filter(
-    (r) =>
-      r.requestingBranchId === intakeBranchId.value &&
-      (r.status === 'in_transit' || r.status === 'completed'),
-  )
-})
-
-const inTransitCount = computed(() => {
-  return incomingTransfersForBranch.value.filter((r) => r.status === 'in_transit').length
-})
-
-// Action: Direct Supplier PO Confirm
-function handleSupplierSubmit() {
-  if (intakeQty.value <= 0 || !activeVariant.value) return
-
-  emit('confirm', {
-    branchId: intakeBranchId.value,
-    variant: activeVariant.value,
-    qty: intakeQty.value,
-    tier: intakeTier.value,
-    bay: intakeBay.value,
-    lot: intakeLot.value,
-    expiry: intakeExpiry.value,
-    poCode: intakePoCode.value,
-    totalUnits: calculatedUnits.value,
-  })
-
-  intakeQty.value = 1
-  intakePoCode.value = ''
-  intakeExpiry.value = ''
-}
-
-// Action: Accept Incoming In-Transit Delivery
-// Action: Accept Incoming In-Transit Delivery
-function handleAcceptDelivery(requestId) {
-  try {
-    let updated
-    if (typeof store.receiveTransferRequest === 'function') {
-      updated = store.receiveTransferRequest(requestId)
-    } else {
-      // Direct store mutation fallback
-      const req = (store.transferRequests || []).find((r) => r.id === requestId)
-      if (req) {
-        req.status = 'completed'
-        req.receivedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-
-        // Credit units into the receiving branch inventory
-        if (!store.branchStocks[req.requestingBranchId]) {
-          store.branchStocks[req.requestingBranchId] = {}
-        }
-        const currentStock = store.branchStocks[req.requestingBranchId][req.variantId] || 0
-        store.branchStocks[req.requestingBranchId][req.variantId] = currentStock + req.totalUnits
-
-        localStorage.setItem('inventory_transfer_requests', JSON.stringify(store.transferRequests))
-        localStorage.setItem('inventory_branch_stocks', JSON.stringify(store.branchStocks))
-        updated = req
-      }
-    }
-
-    intakeFeedback.value = `Delivery Accepted! Credited ${updated?.totalUnits || 0} units to ${getBranchName(updated?.requestingBranchId)}. Customer sale hold is now unlocked in POS!`
-    setTimeout(() => {
-      intakeFeedback.value = ''
-    }, 4500)
-  } catch (err) {
-    intakeFeedback.value = err.message
-  }
-}
-
-// Action: Create Restock Request Order from PO Modal
-function handleCreateBranchRequest() {
-  if (!requestVariantId.value || requestQty.value <= 0) return
-
-  const req = store.createTransferRequest({
-    requestingBranchId: intakeBranchId.value,
-    fulfillingBranchId: requestSourceBranchId.value,
-    variantId: requestVariantId.value,
-    qty: requestQty.value,
-    tier: requestTier.value,
-    notes: requestNotes.value,
-    holdSale: requestHoldSale.value,
-  })
-
-  intakeFeedback.value = `Request ${req.id} sent to ${getBranchName(requestSourceBranchId.value)}! Waiting for dispatch.`
-  activeMode.value = 'incoming'
-
-  setTimeout(() => {
-    intakeFeedback.value = ''
-  }, 4500)
-}
+const {
+  store, // <--- ADD THIS (fixes the undefined flatVariants error)
+  activeMode,
+  setActiveMode, // <--- ADD THIS (enables clicking between tabs)
+  intakeBranchId,
+  intakeVariantId,
+  intakeTier,
+  intakeQty,
+  intakeBay,
+  intakeLot,
+  intakeExpiry,
+  intakePoCode,
+  intakeFeedback,
+  activeVariant,
+  branchOptions,
+  variantOptions,
+  tierOptions,
+  calculatedUnits,
+  calculatedBoxes,
+  calculatedCBM,
+  incomingTransfersForBranch,
+  inTransitCount,
+  getBranchName,
+  handleSupplierSubmit,
+  handleAcceptDelivery,
+} = useWarehouseIntake(props, emit)
 </script>
 
 <template>
@@ -281,7 +79,7 @@ function handleCreateBranchRequest() {
         type="button"
         class="tab-btn"
         :class="{ active: activeMode === 'supplier' }"
-        @click="activeMode = 'supplier'"
+        @click="setActiveMode('supplier')"
       >
         <PackagePlus :size="14" />
         <span>Supplier PO Dock</span>
@@ -291,21 +89,11 @@ function handleCreateBranchRequest() {
         type="button"
         class="tab-btn"
         :class="{ active: activeMode === 'incoming' }"
-        @click="activeMode = 'incoming'"
+        @click="setActiveMode('incoming')"
       >
         <Truck :size="14" />
         <span>Incoming Deliveries</span>
         <span v-if="inTransitCount > 0" class="badge-count-blue">{{ inTransitCount }}</span>
-      </button>
-
-      <button
-        type="button"
-        class="tab-btn"
-        :class="{ active: activeMode === 'request' }"
-        @click="activeMode = 'request'"
-      >
-        <PlusCircle :size="14" />
-        <span>Request Branch Restock</span>
       </button>
     </div>
 
@@ -350,12 +138,12 @@ function handleCreateBranchRequest() {
           <div class="preview-title">{{ activeVariant.fullName }}</div>
           <div class="preview-meta">
             <span class="preview-tag tag-mono">{{ activeVariant.sku }}</span>
-            <span v-if="activeVariant.category" class="preview-tag">{{
-              activeVariant.category
-            }}</span>
-            <span v-if="activeVariant.sizeCapacity" class="preview-tag">{{
-              activeVariant.sizeCapacity
-            }}</span>
+            <span v-if="activeVariant.category" class="preview-tag">
+              {{ activeVariant.category }}
+            </span>
+            <span v-if="activeVariant.sizeCapacity" class="preview-tag">
+              {{ activeVariant.sizeCapacity }}
+            </span>
             <span v-if="activeVariant.isPerishable" class="preview-tag tag-perishable">
               <Clock :size="10" /> Perishable ({{ activeVariant.shelfLifeDays }}d)
             </span>
@@ -482,10 +270,6 @@ function handleCreateBranchRequest() {
           Transfers dispatched by the central commissary or other branches will appear here to
           accept.
         </p>
-        <button type="button" class="btn btn-secondary btn-sm" @click="activeMode = 'request'">
-          <PlusCircle :size="14" />
-          <span>Request Stock from Commissary</span>
-        </button>
       </div>
 
       <div v-else class="deliveries-list">
@@ -500,9 +284,9 @@ function handleCreateBranchRequest() {
         >
           <div class="delivery-header">
             <div class="d-manifest font-mono">{{ item.manifestNo || item.id }}</div>
-            <span v-if="item.status === 'in_transit'" class="badge-status-transit"
-              >🚚 In Transit</span
-            >
+            <span v-if="item.status === 'in_transit'" class="badge-status-transit">
+              🚚 In Transit
+            </span>
             <span v-else class="badge-status-completed">✅ Received & In Stock</span>
           </div>
 
@@ -513,9 +297,9 @@ function handleCreateBranchRequest() {
               <span>This Branch ({{ getBranchName(item.requestingBranchId) }})</span>
             </div>
             <div class="d-product">
-              <strong>{{
-                store.flatVariants.find((v) => v.id === item.variantId)?.fullName
-              }}</strong>
+              <strong>
+                {{ store.flatVariants.find((v) => v.id === item.variantId)?.fullName }}
+              </strong>
               <div class="d-qty-note">
                 Shipment: {{ item.qty }} {{ item.tier }} (+{{ item.totalUnits }} units)
               </div>
@@ -546,80 +330,6 @@ function handleCreateBranchRequest() {
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- 3. CREATE URGENT RESTOCK REQUEST -->
-    <div v-else-if="activeMode === 'request'" class="request-pane">
-      <form @submit.prevent="handleCreateBranchRequest" class="intake-form">
-        <div class="shortage-notice-box">
-          <AlertCircle :size="16" />
-          <span
-            >If current stock cannot fulfill customer orders, trigger an emergency replenishment
-            request to the Central Commissary.</span
-          >
-        </div>
-
-        <div class="input-group">
-          <label>Fulfill From (Source Warehouse / Commissary)</label>
-          <IosSelect
-            v-model="requestSourceBranchId"
-            :options="branchOptions"
-            title="Select Source Hub"
-          />
-        </div>
-
-        <div class="input-group">
-          <label>Product Variant Needed</label>
-          <IosSelect
-            v-model="requestVariantId"
-            :options="variantOptions"
-            title="Select SKU Needed"
-            searchable
-          />
-        </div>
-
-        <div class="form-grid-2">
-          <div class="input-group">
-            <label>Packaging Tier</label>
-            <IosSelect v-model="requestTier" :options="tierOptions" title="Select Tier" />
-          </div>
-
-          <div class="input-group">
-            <label>Quantity to Order</label>
-            <input
-              v-model.number="requestQty"
-              type="number"
-              min="1"
-              step="1"
-              class="form-control"
-              required
-            />
-          </div>
-        </div>
-
-        <div class="input-group">
-          <label>Demand / Order Reason</label>
-          <input
-            v-model="requestNotes"
-            type="text"
-            class="form-control"
-            placeholder="e.g. Customer wants 12 units, store only has 10 on hand"
-            required
-          />
-        </div>
-
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input v-model="requestHoldSale" type="checkbox" />
-            <span>Hold customer sale until this delivery arrives and is confirmed in PO dock</span>
-          </label>
-        </div>
-
-        <button type="submit" class="btn-dock">
-          <PlusCircle :size="16" />
-          <span>Submit Request to Hub</span>
-        </button>
-      </form>
     </div>
   </BaseModal>
 </template>
@@ -1012,33 +722,6 @@ function handleCreateBranchRequest() {
   font-size: 0.74rem;
   font-weight: 700;
   color: #166534;
-}
-
-.shortage-notice-box {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.85rem;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  border-radius: 12px;
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.checkbox-group {
-  margin: 0.2rem 0;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #3f3f46;
-  cursor: pointer;
 }
 
 @media (max-width: 640px) {

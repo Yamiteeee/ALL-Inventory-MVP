@@ -1,104 +1,46 @@
-// src/views/transport/transportConfig.js
-
 export const TRANSPORT_UI = {
   header: {
-    backText: 'Back to Storefront',
-    title: 'Operations & Transportation Ledger',
-    subtitle:
-      'Unified audit ledger recording storefront sales transactions, warehouse transports (WW, WS), and PO inward receiving',
-    badgeSuffix: 'Records Logged',
-    typewriter: {
-      speed: 26,
-      delay: 320,
-    },
+    backText: 'Catalog',
+    title: 'Store Operations & Transport Ledger',
+    subtitle: 'Unified audit trail for POS sales, shortage transfers, and freight movement',
+    badgeSuffix: 'Recorded Movements',
+    typewriter: { speed: 28, delay: 350 },
   },
 
   kpis: {
-    total: 'Total Operations',
-    ww: 'WW (Warehouse Transfers)',
-    ws: 'WS (Store Restocks)',
-    sales: 'Storefront Sales',
-    intake: 'PO Stock Intake',
+    total: 'Total Movements',
+    transfers: 'Branch Restocks',
+    sales: 'Customer Sales',
+    inTransit: 'Active In-Transit',
   },
 
   categories: [
-    { key: 'ALL', label: 'All Operations' },
-    { key: 'WW', label: 'WW', sublabel: 'Warehouse ➔ Warehouse' },
-    { key: 'WS', label: 'WS', sublabel: 'Warehouse ➔ Storefront' },
-    { key: 'SALES', label: 'Sales', sublabel: 'POS Outbound' },
-    { key: 'INTAKE', label: 'Stock-In', sublabel: 'PO Inward Intake' },
+    { key: 'ALL', label: 'All Movements', sublabel: 'Combined Feed' },
+    { key: 'TRANSFERS', label: 'Branch Restocks', sublabel: 'Hub Logistics' },
+    { key: 'SALES', label: 'Customer Sales', sublabel: 'POS Checkouts' },
   ],
 
   toolbar: {
-    searchPlaceholder: 'Search reference, product, customer, carrier...',
-    locationSelectTitle: 'Filter by Facility (W/S)',
-    locationSelectPlaceholder: 'Select Location',
-    allLocationsLabel: 'All Locations (Hubs & Storefronts)',
-    resetButton: 'Reset',
+    searchPlaceholder: 'Search manifest, invoice, SKU, branch, or customer...',
+    locationSelectTitle: 'Filter by Location',
+    locationSelectPlaceholder: 'All Branches',
+    allLocationsLabel: 'All Stores & Hubs',
+    resetButton: 'Reset Filters',
   },
 
   tableHeaders: [
-    { label: 'Reference & Activity', key: 'ref' },
-    { label: 'Movement Route (Origin ➔ Destination)', key: 'route' },
-    { label: 'Product / Details', key: 'product' },
-    { label: 'Quantity', key: 'qty' },
-    { label: 'Handler / Logistics', key: 'carrier' },
-    { label: 'Status / Total', key: 'status' },
+    { key: 'ref', label: 'Ref / Order #' },
+    { key: 'route', label: 'Movement Flow' },
+    { key: 'product', label: 'Product Details' },
+    { key: 'qty', label: 'Quantity' },
+    { key: 'handler', label: 'Operator / Courier' },
+    { key: 'status', label: 'Status' },
   ],
 
   emptyState: {
-    title: 'No transactions found',
-    subtitle:
-      'Transactions and freight transport dispatches are automatically captured as activities occur.',
+    title: 'No Ledger Entries Found',
+    subtitle: 'No records match your selected category, branch filter, or search term.',
   },
 }
 
-export const DEFAULT_TRANSPORT_RECORDS = [
-  {
-    id: 1718001,
-    manifestNo: 'TRP-2026-8412',
-    category: 'WS',
-    originType: 'W',
-    destType: 'S',
-    date: '10:30 AM',
-    fullDate: new Date().toLocaleDateString(),
-    fromBranchId: 'b-commissary',
-    fromName: 'Main Commissary Hub',
-    toBranchId: 'b-downtown',
-    toName: 'Downtown Branch',
-    productName: 'Sunwide Concentrated Fruit Tea Syrup · Green Apple',
-    sku: 'SYR-SUN-APL-2.5L',
-    tierLabel: 'Cartons',
-    qty: 5,
-    totalUnits: 30,
-    unit: 'bottle',
-    vehicle: 'NBD-4819 (Closed Van)',
-    driver: 'Marco Ramirez',
-    status: 'In Transit',
-    notes: 'Store restock delivery',
-  },
-  {
-    id: 1718002,
-    manifestNo: 'TRP-2026-3190',
-    category: 'WW',
-    originType: 'W',
-    destType: 'W',
-    date: '08:15 AM',
-    fullDate: new Date().toLocaleDateString(),
-    fromBranchId: 'b-commissary',
-    fromName: 'Main Commissary Hub',
-    toBranchId: 'b-uptown',
-    toName: 'Uptown Hub',
-    productName: 'EcoPack U-Cup 16oz (500ml)',
-    sku: 'CUP-EP-90-16OZ',
-    tierLabel: 'Pallets',
-    qty: 2,
-    totalUnits: 2400,
-    unit: 'sleeve',
-    vehicle: 'WQR-9901 (Heavy Freight)',
-    driver: 'Eduardo Santos',
-    status: 'Received',
-    notes: 'Bulk commissary transfer to bay RACK-D01',
-  },
-]
-
+export const DEFAULT_TRANSPORT_RECORDS = []

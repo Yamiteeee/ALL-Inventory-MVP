@@ -1,7 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
-import { useInventoryStore } from '../../stores/inventoryStore'
+import { RouterLink } from 'vue-router'
 import { CATALOG_UI } from './catalogConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
@@ -10,6 +8,8 @@ import IosSelect from '@/components/ui/IosSelect.vue'
 import FloatingDemoHub from '@/components/ui/FloatingDemoHub.vue'
 import WarehouseIntakeModal from './warehouseModals/WarehouseIntakeModal.vue'
 import WarehouseTransferModal from './warehouseModals/WarehouseTransferModal.vue'
+import WarehousePoHistoryModal from './warehouseModals/WarehousePoHistoryModal.vue'
+import { useCatalog } from '@/composables/home/useCatalog'
 
 import {
   Search,
@@ -26,200 +26,42 @@ import {
   CheckCircle2,
 } from 'lucide-vue-next'
 
-const router = useRouter()
-const store = useInventoryStore()
-
-// 1. Initial Page Entrance Spring
+// UI-only Animations
 usePageEntrance()
-
-// 2. Typewriter Effect with Morphing Dot
 const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
   CATALOG_UI.header.title,
   { speed: 28, delay: 350 },
 )
-
-// 3. Dropdown Spring Physics Transition
 const { dropdownTransition } = useDropdownAnimation()
 
-// Warehouse Logistics Modal Visibility Controls
-const showIntakeModal = ref(false)
-const showTransferModal = ref(false)
-const successBanner = ref('')
+// Isolated Catalog Business Logic
+const {
+  store,
+  showIntakeModal,
+  showTransferModal,
+  showPoHistoryModal,
+  successBanner,
+  selectedBranchId,
+  searchQuery,
+  expandedParents,
+  pendingTransfersCount,
+  incomingDeliveriesCount,
+  branchOptions,
+  filteredCatalog,
+  totalCatalogVariants,
+  totalBranchUnits,
+  onIntakeConfirm,
+  onTransferConfirm,
+  toggleParent,
+  expandAll,
+  collapseAll,
+  colLabel,
+  logout,
+} = useCatalog()
 
-// Inbound Freight Intake
-function onIntakeConfirm({ branchId, variant, qty, tier, bay, lot, expiry, poCode, totalUnits }) {
-  const targetBranchId =
-    branchId || (selectedBranchId.value === 'all' ? 'b-commissary' : selectedBranchId.value)
-  const branchName = store.branches.find((b) => b.id === targetBranchId)?.name || 'Warehouse'
-  const poNote = `[${bay} | ${lot}] ${poCode || 'Pallet Dock Delivery'}`
-
-  store.receiveStock({
-    branchId: targetBranchId,
-    variantId: variant.id,
-    inputQty: qty,
-    uomTier: tier,
-    supplierNote: poNote,
-    batchExpiry: expiry,
-  })
-
-  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
-  const unit = variant.uom?.level1?.unit || 'units'
-  successBanner.value = `Docked ${qty} ${tierLabel} of ${variant.fullName} (+${totalUnits} ${unit}) into ${branchName} (${bay})!`
-  showIntakeModal.value = false
-
-  setTimeout(() => {
-    successBanner.value = ''
-  }, 4500)
-}
-
-// Inter-Warehouse Transfer
-function onTransferConfirm({ fromWarehouseId, toWarehouseId, variant, totalUnits, manifestNo }) {
-  if (!store.branchStocks[fromWarehouseId]) store.branchStocks[fromWarehouseId] = {}
-  if (!store.branchStocks[toWarehouseId]) store.branchStocks[toWarehouseId] = {}
-
-  store.branchStocks[fromWarehouseId][variant.id] = Math.max(
-    0,
-    (store.branchStocks[fromWarehouseId][variant.id] || 0) - totalUnits,
-  )
-  store.branchStocks[toWarehouseId][variant.id] =
-    (store.branchStocks[toWarehouseId][variant.id] || 0) + totalUnits
-
-  const fromName = store.branches.find((b) => b.id === fromWarehouseId)?.name || fromWarehouseId
-  const toName = store.branches.find((b) => b.id === toWarehouseId)?.name || toWarehouseId
-  const unit = variant.uom?.level1?.unit || 'units'
-
-  successBanner.value = `Relocated ${totalUnits} ${unit} of ${variant.fullName} (${fromName} → ${toName})! [${manifestNo}]`
-  showTransferModal.value = false
-
-  setTimeout(() => {
-    successBanner.value = ''
-  }, 4500)
-}
-
-const selectedBranchId = ref(store.branches[0]?.id || '')
-const searchQuery = ref('')
-const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true })
-
-// Real-time transfer and delivery notification counts
-const pendingTransfersCount = computed(() => {
-  return (store.transferRequests || []).filter((r) => r.status === 'pending').length
-})
-
-const incomingDeliveriesCount = computed(() => {
-  const currentBranch = selectedBranchId.value === 'all' ? null : selectedBranchId.value
-  return (store.transferRequests || []).filter(
-    (r) => r.status === 'in_transit' && (!currentBranch || r.requestingBranchId === currentBranch),
-  ).length
-})
-
-// Normalized branch options for IosSelect
-const branchOptions = computed(() => {
-  return store.branches.map((b) => ({
-    value: b.id,
-    label: `${b.name} Branch`,
-  }))
-})
-
-function toggleParent(parentId) {
-  expandedParents.value[parentId] = !expandedParents.value[parentId]
-}
-
-function expandAll() {
-  store.catalog.forEach((p) => {
-    expandedParents.value[p.parentId] = true
-  })
-}
-
-function collapseAll() {
-  expandedParents.value = {}
-}
-
-const computedCatalog = computed(() => {
-  const currentStocks = store.branchStocks[selectedBranchId.value] || {}
-
-  return store.catalog.map((parent) => {
-    const variantsWithStock = parent.variants.map((v) => {
-      const branchStock = currentStocks[v.id] || 0
-      const boxes = Math.floor(branchStock / (v.uom?.level2?.multiplier || 1))
-      const pallets = (
-        branchStock /
-        ((v.uom?.level2?.multiplier || 1) * (v.uom?.level3?.multiplier || 1))
-      ).toFixed(1)
-
-      const cbmPerUnit = store.calculateCBM(v.dimensions)
-      const totalOccupiedCBM = (boxes * cbmPerUnit).toFixed(2)
-
-      return {
-        ...v,
-        stock: branchStock,
-        boxes,
-        pallets,
-        cbm: cbmPerUnit,
-        totalOccupiedCBM,
-        autoName: store.generateVariantName(parent, v),
-      }
-    })
-
-    const parentTotalUnits = variantsWithStock.reduce((acc, curr) => acc + curr.stock, 0)
-    const parentTotalBoxes = variantsWithStock.reduce((acc, curr) => acc + curr.boxes, 0)
-    const parentTotalPallets = variantsWithStock
-      .reduce((acc, curr) => acc + Number(curr.pallets), 0)
-      .toFixed(1)
-
-    return {
-      ...parent,
-      totalUnits: parentTotalUnits,
-      totalBoxes: parentTotalBoxes,
-      totalPallets: parentTotalPallets,
-      variants: variantsWithStock,
-    }
-  })
-})
-
-const filteredCatalog = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  const list = computedCatalog.value
-
-  if (!q) return list
-
-  return list
-    .map((parent) => {
-      const parentMatches =
-        parent.parentName.toLowerCase().includes(q) ||
-        parent.brand.toLowerCase().includes(q) ||
-        parent.category.toLowerCase().includes(q)
-
-      const matchedVariants = parent.variants.filter(
-        (v) =>
-          v.autoName.toLowerCase().includes(q) ||
-          v.sku.toLowerCase().includes(q) ||
-          (v.flavor && v.flavor.toLowerCase().includes(q)) ||
-          v.supplierItemNo.toLowerCase().includes(q),
-      )
-
-      if (parentMatches) return parent
-      if (matchedVariants.length > 0) return { ...parent, variants: matchedVariants }
-      return null
-    })
-    .filter(Boolean)
-})
-
-const totalCatalogVariants = computed(() =>
-  store.catalog.reduce((acc, p) => acc + p.variants.length, 0),
-)
-
-const totalBranchUnits = computed(() => {
-  const stocks = store.branchStocks[selectedBranchId.value] || {}
-  return Object.values(stocks).reduce((a, b) => a + b, 0)
-})
-
-function colLabel(index) {
-  return CATALOG_UI.tableHeaders[index]?.label || ''
-}
-
-function logout() {
-  localStorage.clear()
-  router.push('/login')
+function openIntakeFromHistory() {
+  showPoHistoryModal.value = false
+  showIntakeModal.value = true
 }
 </script>
 
@@ -248,14 +90,14 @@ function logout() {
           <p class="page-subtitle">{{ CATALOG_UI.header.subtitle }}</p>
         </div>
 
-        <!-- Navigation Controls: Direct Warehouse Logistics Workflows -->
+        <!-- Navigation Controls -->
         <div class="nav-controls">
-          <!-- 1. Receive PO & Inbound Freight -->
+          <!-- 1. PO Receiving History & Inbound Freight (Opens Summary First) -->
           <button
             type="button"
             class="btn btn-action-primary"
-            title="Receive Supplier PO & Inbound Freight"
-            @click="showIntakeModal = true"
+            title="PO Receiving History & Inbound Dock"
+            @click="showPoHistoryModal = true"
           >
             <PackagePlus :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ CATALOG_UI.header.receiveButton }}</span>
@@ -268,7 +110,7 @@ function logout() {
           <button
             type="button"
             class="btn btn-secondary"
-            title="Inter-Warehouse Transfer & Request Orders"
+            title="Inter-Warehouse Transfer & Dispatch Queue"
             @click="showTransferModal = true"
           >
             <Warehouse :size="14" stroke-width="2.2" />
@@ -336,14 +178,18 @@ function logout() {
             <span class="kpi-num emphasized">{{ totalBranchUnits }}</span>
           </div>
           <div class="kpi-divider"></div>
-          <RouterLink
-            to="/stock-in"
+
+          <!-- KPI: Clicking opens PO History Summary Modal -->
+          <div
             class="kpi-item kpi-link"
-            title="Open Supplier PO Inward Receiving Dock"
+            role="button"
+            tabindex="0"
+            title="View Inbound PO Receiving Logs"
+            @click="showPoHistoryModal = true"
           >
             <span class="kpi-label">{{ CATALOG_UI.kpiLabels.poCount }}</span>
             <span class="kpi-num po-num">{{ store.stockInHistory?.length || 0 }}</span>
-          </RouterLink>
+          </div>
         </div>
       </section>
 
@@ -378,7 +224,7 @@ function logout() {
         </div>
       </section>
 
-      <!-- 4. Scrollable Catalog with Smooth Spring Dropdown Transitions -->
+      <!-- 4. Scrollable Catalog -->
       <div class="scrollable-catalog-viewport flip-surface">
         <main class="tree-container">
           <article
@@ -398,7 +244,6 @@ function logout() {
             >
               <div class="node-lead">
                 <div class="chevron-wrap">
-                  <!-- Smooth Rotating Chevron -->
                   <ChevronDown
                     :size="16"
                     stroke-width="2.5"
@@ -566,7 +411,15 @@ function logout() {
       </div>
     </div>
 
-    <!-- Warehouse Logistics Modals -->
+    <!-- 1. PO Intake History & Summary Modal (Opened First) -->
+    <WarehousePoHistoryModal
+      :show="showPoHistoryModal"
+      :initial-branch-id="selectedBranchId !== 'all' ? selectedBranchId : 'all'"
+      @close="showPoHistoryModal = false"
+      @create-new="openIntakeFromHistory"
+    />
+
+    <!-- 2. Freight Dock Intake Form Modal -->
     <WarehouseIntakeModal
       :show="showIntakeModal"
       :variants="store.flatVariants"
@@ -576,6 +429,7 @@ function logout() {
       @confirm="onIntakeConfirm"
     />
 
+    <!-- 3. Hub-to-Hub Freight Transfer Modal -->
     <WarehouseTransferModal
       :show="showTransferModal"
       :variants="store.flatVariants"
@@ -585,7 +439,7 @@ function logout() {
       @confirm="onTransferConfirm"
     />
 
-    <!-- Floating Demo Sandbox & Satellite Systems Hub -->
+    <!-- Floating Demo Sandbox Hub -->
     <FloatingDemoHub />
   </div>
 </template>

@@ -1,9 +1,9 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { LOGIN_UI } from './loginConfig'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 import { useTypewriter } from '@/animations/useTypewriter'
+import { useAuth } from '@/composables/auth/useAuth'
 
 // Lucide Vue Next Icons
 import {
@@ -16,52 +16,15 @@ import {
   ArrowLeft,
 } from 'lucide-vue-next'
 
-const router = useRouter()
-
-const employeeId = ref('')
-const password = ref('')
-const errorMessage = ref('')
-
-// 1. Run universal entrance animation
+// UI-Only Animations
 usePageEntrance()
-
-// 2. Start typewriter right after the card spring settles (~380ms)
 const { displayedText: portalTitle, isComplete: isTypingDone } = useTypewriter(
   LOGIN_UI.header.title,
   { speed: 30, delay: 380 },
 )
 
-// In-memory mock employee database
-const employees = [
-  { id: 'EMP-101', pass: 'admin123', name: 'Alex Rivera', role: 'Inventory Manager' },
-  { id: 'EMP-102', pass: 'staff123', name: 'Sam Taylor', role: 'Warehouse Clerk' },
-]
-
-function fillCredentials(id, pass) {
-  employeeId.value = id
-  password.value = pass
-  errorMessage.value = ''
-}
-
-function handleLogin() {
-  errorMessage.value = ''
-
-  const user = employees.find(
-    (emp) =>
-      emp.id.toLowerCase() === employeeId.value.trim().toLowerCase() && emp.pass === password.value,
-  )
-
-  if (user) {
-    localStorage.setItem(
-      'auth_employee',
-      JSON.stringify({ name: user.name, role: user.role, id: user.id }),
-    )
-
-    router.push('/inventory')
-  } else {
-    errorMessage.value = LOGIN_UI.errors.invalidCredentials
-  }
-}
+// Isolated Authentication Logic
+const { employeeId, password, errorMessage, fillCredentials, handleLogin } = useAuth()
 </script>
 
 <template>
@@ -95,7 +58,7 @@ function handleLogin() {
         <span>{{ errorMessage }}</span>
       </div>
 
-      <!-- Auth Form (Inputs and button stagger sequentially) -->
+      <!-- Auth Form -->
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="input-group anim-stagger">
           <label for="employeeId" class="label-with-icon">

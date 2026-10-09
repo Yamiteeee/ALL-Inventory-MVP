@@ -8,7 +8,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     { id: 'b-uptown', name: 'Uptown Branch' },
   ])
 
-  // MASTER PARENT-VARIANT HIERARCHY (Expanded Catalog)
+  // MASTER PARENT-VARIANT HIERARCHY
   const catalog = ref([
     {
       parentId: 'P-100',
@@ -603,7 +603,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     },
   ])
 
-  // Default Baseline Branch Stocks for Demo Reset
+  // Baseline Branch Stocks
   const DEFAULT_BRANCH_STOCKS = {
     'b-commissary': {
       'V-1001': 240,
@@ -685,7 +685,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     },
   }
 
-  // Branch Stocks tied to All Variant IDs: { branchId: { variantId: baseUnitStock } }
+  // Branch Stocks
   const savedStocks = localStorage.getItem('inventory_branch_stocks')
   const branchStocks = ref(
     savedStocks ? JSON.parse(savedStocks) : JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS)),
@@ -695,7 +695,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     localStorage.setItem('inventory_branch_stocks', JSON.stringify(branchStocks.value))
   }
 
-  // Clean empty default for transfer requests (No pre-seeded mock records)
+  // Clean, persistent transfer requests
   const savedTransferRequests = localStorage.getItem('inventory_transfer_requests')
   const transferRequests = ref(savedTransferRequests ? JSON.parse(savedTransferRequests) : [])
 
@@ -703,7 +703,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     localStorage.setItem('inventory_transfer_requests', JSON.stringify(transferRequests.value))
   }
 
-  // Clean empty default for held sales (No pre-seeded mock records)
+  // Clean, persistent held sales queue
   const savedHeldSales = localStorage.getItem('inventory_held_sales')
   const heldSales = ref(savedHeldSales ? JSON.parse(savedHeldSales) : [])
 
@@ -711,13 +711,32 @@ export const useInventoryStore = defineStore('inventory', () => {
     localStorage.setItem('inventory_held_sales', JSON.stringify(heldSales.value))
   }
 
+  // Persistent Sales & Intake History
+  const savedSalesHistory = localStorage.getItem('inventory_sales_history')
+  const salesHistory = ref(savedSalesHistory ? JSON.parse(savedSalesHistory) : [])
+
+  function saveSalesHistory() {
+    localStorage.setItem('inventory_sales_history', JSON.stringify(salesHistory.value))
+  }
+
+  const savedStockInHistory = localStorage.getItem('inventory_stock_in_history')
+  const stockInHistory = ref(savedStockInHistory ? JSON.parse(savedStockInHistory) : [])
+
+  function saveStockInHistory() {
+    localStorage.setItem('inventory_stock_in_history', JSON.stringify(stockInHistory.value))
+  }
+
   function resetDemoStocks() {
     branchStocks.value = JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS))
     transferRequests.value = []
     heldSales.value = []
+    salesHistory.value = []
+    stockInHistory.value = []
     saveBranchStocks()
     saveTransferRequests()
     saveHeldSales()
+    saveSalesHistory()
+    saveStockInHistory()
   }
 
   // Customer Loyalty List
@@ -758,7 +777,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     localStorage.setItem('inventory_customers', JSON.stringify(customers.value))
   }
 
-  // Automated Name Formula
   function generateVariantName(parent, variant) {
     const descriptors = [variant.flavor, variant.subtitle].filter(Boolean).join(' - ')
     return `${parent.brand} ${parent.parentName} · ${descriptors} (${variant.sizeCapacity})`
@@ -769,7 +787,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     return ((dim.lengthCm * dim.widthCm * dim.heightCm) / 1000000).toFixed(3)
   }
 
-  // Flattened variant projection
   const flatVariants = computed(() => {
     return catalog.value.flatMap((parent) =>
       parent.variants.map((v) => ({
@@ -786,8 +803,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     )
   })
 
-  // Stock In Receiving Action
-  const stockInHistory = ref([])
+  // Stock In Receiving Action (Supplier Inbound)
   function receiveStock({ branchId, variantId, inputQty, uomTier, supplierNote, batchExpiry }) {
     const variant = flatVariants.value.find((v) => v.id === variantId)
     if (!variant) return
@@ -811,11 +827,13 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     stockInHistory.value.unshift({
       id: Date.now(),
+      timestampMs: Date.now(),
       date:
         new Date().toLocaleDateString() +
         ' ' +
         new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
+      branchId,
       productName: variant.fullName,
       inputQty: Number(inputQty),
       uomTierLabel:
@@ -829,16 +847,10 @@ export const useInventoryStore = defineStore('inventory', () => {
       note: supplierNote || 'Standard Delivery',
       expiry: batchExpiry || (variant.isPerishable ? 'Batch Tagged' : 'N/A'),
     })
+    saveStockInHistory()
   }
 
-  // POS Sales Action with Selective Profile Updates
-  const savedSalesHistory = localStorage.getItem('inventory_sales_history')
-  const salesHistory = ref(savedSalesHistory ? JSON.parse(savedSalesHistory) : [])
-
-  function saveSalesHistory() {
-    localStorage.setItem('inventory_sales_history', JSON.stringify(salesHistory.value))
-  }
-
+  // POS Sales Action
   function recordSale({
     branchId,
     variantId,
@@ -886,9 +898,10 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     salesHistory.value.unshift({
       id: Date.now() + Math.floor(Math.random() * 1000000),
+      timestampMs: Date.now(),
       date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
-      branchId: branchId,
+      branchId,
       productName: variant?.fullName || variantId,
       unit: variant?.uom?.level1?.unit || 'unit',
       quantity: qty,
@@ -943,6 +956,7 @@ export const useInventoryStore = defineStore('inventory', () => {
       manifestNo: '',
       notes: notes || 'Branch Stock Replenishment Request',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestampMs: Date.now(),
       dispatchedAt: null,
       receivedAt: null,
       holdSale,
@@ -969,7 +983,6 @@ export const useInventoryStore = defineStore('inventory', () => {
       )
     }
 
-    // Deduct stock from the fulfilling warehouse immediately upon dispatch
     branchStocks.value[req.fulfillingBranchId][req.variantId] = available - req.totalUnits
     saveBranchStocks()
 
@@ -977,6 +990,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     req.manifestNo =
       manifestNo || `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
     req.dispatchedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    req.timestampMs = Date.now()
     if (courierNotes) req.courierNotes = courierNotes
 
     saveTransferRequests()
@@ -988,7 +1002,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     if (!req) throw new Error('Transfer request not found')
     if (req.status !== 'in_transit') throw new Error('Request is not in transit')
 
-    // Credit units into the receiving store's inventory
     if (!branchStocks.value[req.requestingBranchId]) {
       branchStocks.value[req.requestingBranchId] = {}
     }
@@ -996,10 +1009,9 @@ export const useInventoryStore = defineStore('inventory', () => {
     branchStocks.value[req.requestingBranchId][req.variantId] = current + req.totalUnits
     saveBranchStocks()
 
-    // Transition status to completed.
-    // NOTE: This does NOT auto-complete the sale in POS — it simply marks the freight received!
     req.status = 'completed'
     req.receivedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    req.timestampMs = Date.now()
 
     saveTransferRequests()
     return req
@@ -1017,7 +1029,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     saveTransferRequests()
   }
 
-  // Held Orders Actions (Separated from direct checkouts)
+  // Held Orders Actions
   function createHeldSale({
     branchId,
     customerName,
@@ -1037,6 +1049,7 @@ export const useInventoryStore = defineStore('inventory', () => {
       branchId,
       customerName: customerName || 'Walk-in Retail Buyer',
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestampMs: Date.now(),
       requestId,
       requestIds: requestIds.length ? requestIds : requestId ? [requestId] : [],
       sourceBranchId,
@@ -1056,7 +1069,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     if (idx === -1) throw new Error('Held order not found')
     const hold = heldSales.value[idx]
 
-    // Verify and deduct stock for each item from receiving branch inventory
     hold.items.forEach((item) => {
       if (!branchStocks.value[hold.branchId]) {
         branchStocks.value[hold.branchId] = {}
@@ -1069,6 +1081,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 
       salesHistory.value.unshift({
         id: Date.now() + Math.floor(Math.random() * 1000000),
+        timestampMs: Date.now(),
         date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         branchName: branch?.name || hold.branchId,
         branchId: hold.branchId,
@@ -1089,7 +1102,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     saveBranchStocks()
     saveSalesHistory()
 
-    // Remove from held queue
     heldSales.value.splice(idx, 1)
     saveHeldSales()
     return hold
@@ -1127,6 +1139,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     receiveStock,
     recordSale,
     resetDemoStocks,
+    saveBranchStocks,
   }
 })
 
