@@ -33,14 +33,49 @@ export function useWarehouseTransfer(props, emit) {
   const dispatchCourierNotes = ref('')
   const feedbackBanner = ref('')
 
-  // Reactive Filters & Lists
+  // Real-time Hub Options with Pending Request Counts & Notifications
   const hubOptions = computed(() => {
+    const totalPendingSystem = (store.transferRequests || []).filter(
+      (r) => r.status === 'pending',
+    ).length
+
     return [
-      { value: 'all', label: 'All Warehouses (Global View)' },
-      ...props.branches.map((b) => ({
-        value: b.id,
-        label: `${b.name} Hub`,
-      })),
+      {
+        value: 'all',
+        label: `All Warehouses (Global View)${totalPendingSystem > 0 ? ` · ${totalPendingSystem} pending` : ''}`,
+        sublabel:
+          totalPendingSystem > 0
+            ? `${totalPendingSystem} order(s) waiting system-wide`
+            : 'All queues clear',
+      },
+      ...props.branches.map((b) => {
+        // Pending requests waiting for THIS hub to pack & dispatch
+        const toFulfillCount = (store.transferRequests || []).filter(
+          (r) => r.status === 'pending' && r.fulfillingBranchId === b.id,
+        ).length
+
+        // Pending requests placed BY this storefront needing stock
+        const requestedByCount = (store.transferRequests || []).filter(
+          (r) => r.status === 'pending' && r.requestingBranchId === b.id,
+        ).length
+
+        let badgeTag = ''
+        let statusSub = 'No pending requests'
+
+        if (toFulfillCount > 0) {
+          badgeTag = ` (${toFulfillCount} to dispatch)`
+          statusSub = `${toFulfillCount} store order(s) waiting for dispatch`
+        } else if (requestedByCount > 0) {
+          badgeTag = ` (${requestedByCount} requested)`
+          statusSub = `${requestedByCount} restock order(s) pending commissary`
+        }
+
+        return {
+          value: b.id,
+          label: `${b.name} Hub${badgeTag}`,
+          sublabel: statusSub,
+        }
+      }),
     ]
   })
 

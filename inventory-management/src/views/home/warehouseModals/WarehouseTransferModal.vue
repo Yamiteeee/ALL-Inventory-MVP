@@ -65,7 +65,7 @@ const {
     max-width="660px"
     @close="emit('close')"
   >
-    <!-- Modal Navigation Pill Tabs (Streamlined to 2 Logistics Operations) -->
+    <!-- Modal Navigation Pill Tabs -->
     <div class="transfer-tabs-bar">
       <button
         type="button"
@@ -73,7 +73,7 @@ const {
         :class="{ active: activeTab === 'queue' }"
         @click="setActiveTab('queue')"
       >
-        <Inbox :size="14" />
+        <Inbox :size="14" stroke-width="2.2" />
         <span>Fulfillment Queue</span>
         <span v-if="pendingRequestsForThisHub.length" class="badge-count">
           {{ pendingRequestsForThisHub.length }}
@@ -86,16 +86,20 @@ const {
         :class="{ active: activeTab === 'transit' }"
         @click="setActiveTab('transit')"
       >
-        <Truck :size="14" />
+        <Truck :size="14" stroke-width="2.2" />
         <span>In Transit ({{ inTransitRequests.length }})</span>
       </button>
     </div>
 
-    <!-- Active Hub Switcher -->
+    <!-- Active Hub Switcher with Notification Counter -->
     <div class="hub-context-strip">
       <div class="context-label">
-        <Warehouse :size="12" />
+        <Warehouse :size="13" stroke-width="2.2" />
         <span>Operating as Fulfilling Hub:</span>
+        <span v-if="pendingRequestsForThisHub.length > 0" class="hub-pending-pill">
+          <Clock :size="11" stroke-width="2.2" />
+          <span>{{ pendingRequestsForThisHub.length }} to dispatch</span>
+        </span>
       </div>
       <div class="context-select-wrap">
         <IosSelect v-model="activeHubId" :options="hubOptions" title="Switch Operating Hub" />
@@ -104,7 +108,7 @@ const {
 
     <!-- Success Feedback Notification -->
     <div v-if="feedbackBanner" class="transfer-alert-banner">
-      <CheckCircle2 :size="15" />
+      <CheckCircle2 :size="15" stroke-width="2.2" />
       <span>{{ feedbackBanner }}</span>
     </div>
 
@@ -112,12 +116,12 @@ const {
     <div v-if="activeTab === 'queue'" class="tab-pane">
       <div v-if="pendingRequestsForThisHub.length === 0" class="empty-requests-state">
         <div class="empty-icon-wrap">
-          <CheckCircle2 :size="28" />
+          <CheckCircle2 :size="32" stroke-width="1.8" />
         </div>
         <h4>No Pending Requests for this Hub</h4>
         <p>
-          All storefront order transfers have been fulfilled. Switch operating hubs above to view
-          other queues.
+          All storefront order transfers have been fulfilled. Switch operating hubs in the dropdown
+          above to check other branch queues.
         </p>
       </div>
 
@@ -133,17 +137,20 @@ const {
             @click="selectedRequestId = req.id"
           >
             <div class="pill-header">
-              <span class="req-id">{{ req.id }}</span>
-              <span class="req-status-pill">Pending</span>
+              <span class="req-id font-mono">{{ req.id }}</span>
+              <span class="req-status-pill">
+                <Clock :size="10" stroke-width="2.2" />
+                <span>Pending</span>
+              </span>
             </div>
             <div class="pill-body">
               <strong>{{ getBranchName(req.requestingBranchId) }}</strong>
-              <div class="pill-meta">
+              <div class="pill-meta font-mono">
                 Needs {{ req.qty }} {{ req.tier }} ({{ req.totalUnits }} units)
               </div>
             </div>
             <div v-if="req.holdSale" class="pill-tag-hold">
-              <Clock :size="11" />
+              <Clock :size="11" stroke-width="2.2" />
               <span>Customer Sale on Hold</span>
             </div>
           </button>
@@ -158,7 +165,7 @@ const {
             </div>
             <div class="req-routing-badge">
               <span>{{ getBranchName(activeRequest.fulfillingBranchId) }}</span>
-              <ArrowRightLeft :size="12" />
+              <ArrowRightLeft :size="12" stroke-width="2.2" />
               <span>{{ getBranchName(activeRequest.requestingBranchId) }}</span>
             </div>
           </div>
@@ -177,7 +184,7 @@ const {
             <div class="metric-box">
               <span class="m-label">Requested Quantity</span>
               <span class="m-val">{{ activeRequest.qty }} {{ activeRequest.tier }}</span>
-              <span class="m-sub">
+              <span class="m-sub font-mono">
                 ({{ activeRequest.totalUnits }} {{ activeRequestVariant.uom?.level1?.unit }})
               </span>
             </div>
@@ -192,7 +199,7 @@ const {
             </div>
             <div class="metric-box">
               <span class="m-label">Transit Volume</span>
-              <span class="m-val">{{ calculatedCBM }} m³</span>
+              <span class="m-val font-mono">{{ calculatedCBM }} m³</span>
               <span class="m-sub">Freight payload</span>
             </div>
           </div>
@@ -202,7 +209,7 @@ const {
             <div class="form-grid-2">
               <div class="input-group">
                 <label class="label-with-icon">
-                  <FileText :size="12" />
+                  <FileText :size="12" stroke-width="2.2" />
                   <span>Transfer Manifest #</span>
                 </label>
                 <input
@@ -216,7 +223,7 @@ const {
 
               <div class="input-group">
                 <label class="label-with-icon">
-                  <Truck :size="12" />
+                  <Truck :size="12" stroke-width="2.2" />
                   <span>Courier / Driver Notes</span>
                 </label>
                 <input
@@ -229,7 +236,7 @@ const {
             </div>
 
             <div v-if="!hasSufficientStockForRequest" class="stock-deficit-warning">
-              <AlertCircle :size="14" />
+              <AlertCircle :size="14" stroke-width="2.2" />
               <span>
                 Cannot dispatch. Hub needs {{ activeRequest.totalUnits }}, but only
                 {{ availableStockInHub }} available.
@@ -241,7 +248,7 @@ const {
               class="btn-fulfill-submit"
               :disabled="!hasSufficientStockForRequest"
             >
-              <Send :size="16" />
+              <Send :size="15" stroke-width="2.2" />
               <span>Accept Request & Dispatch Stock</span>
             </button>
           </form>
@@ -252,38 +259,56 @@ const {
     <!-- TAB 2: IN TRANSIT / ON THE ROAD -->
     <div v-else-if="activeTab === 'transit'" class="tab-pane">
       <div v-if="inTransitRequests.length === 0" class="empty-requests-state">
-        <Truck :size="28" />
+        <Truck :size="32" stroke-width="1.8" class="empty-icon" />
         <h4>No Shipments Currently in Transit</h4>
         <p>Dispatched orders en route to storefronts will appear here.</p>
       </div>
 
       <div v-else class="transit-list">
-        <div v-for="t in inTransitRequests" :key="t.id" class="transit-card">
+        <article v-for="t in inTransitRequests" :key="t.id" class="transit-card">
           <div class="transit-header">
-            <div class="t-manifest font-mono">{{ t.manifestNo || 'TRF-IN-TRANSIT' }}</div>
-            <span class="status-pill-transit">🚚 In Transit</span>
+            <div class="d-manifest-group">
+              <span class="d-label">Manifest</span>
+              <span class="t-manifest font-mono">{{ t.manifestNo || 'TRF-IN-TRANSIT' }}</span>
+            </div>
+            <span class="status-pill-transit">
+              <Truck :size="12" stroke-width="2.2" />
+              <span>In Transit</span>
+            </span>
           </div>
+
           <div class="transit-body">
             <div class="t-route">
-              <strong>{{ getBranchName(t.fulfillingBranchId) }}</strong>
-              <ArrowRightLeft :size="12" />
-              <strong>{{ getBranchName(t.requestingBranchId) }}</strong>
+              <span class="route-hub">{{ getBranchName(t.fulfillingBranchId) }}</span>
+              <ArrowRightLeft :size="12" stroke-width="2.2" class="route-arrow" />
+              <span class="route-dest">{{ getBranchName(t.requestingBranchId) }}</span>
             </div>
-            <div class="t-qty">
-              {{ t.qty }} {{ t.tier }} ({{ t.totalUnits }} units) ·
-              {{ store.flatVariants.find((v) => v.id === t.variantId)?.fullName }}
+
+            <div class="t-product-group">
+              <div class="t-product-title">
+                {{ store.flatVariants.find((v) => v.id === t.variantId)?.fullName }}
+              </div>
+              <div class="t-qty font-mono">
+                Payload: {{ t.qty }} {{ t.tier }} (+{{ t.totalUnits }} units)
+              </div>
             </div>
-            <div v-if="t.courierNotes" class="t-courier">Driver Note: {{ t.courierNotes }}</div>
+
+            <div v-if="t.courierNotes" class="t-courier">
+              <FileText :size="11" stroke-width="2.2" />
+              <span>Driver Note: {{ t.courierNotes }}</span>
+            </div>
+
             <div v-if="t.holdSale" class="pill-tag-hold">
-              <Clock :size="11" />
+              <Clock :size="11" stroke-width="2.2" />
               <span>Customer Sale On Hold</span>
             </div>
           </div>
+
           <div class="transit-footer">
-            <span class="t-time">Dispatched: {{ t.dispatchedAt || 'Today' }}</span>
-            <span class="t-note">Awaiting Inward Confirmation in PO Dock</span>
+            <span class="t-time font-mono">Dispatched: {{ t.dispatchedAt || 'Today' }}</span>
+            <span class="t-note">Awaiting Inward Confirmation at Store Dock</span>
           </div>
-        </div>
+        </article>
       </div>
     </div>
   </BaseModal>
@@ -305,7 +330,7 @@ const {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   padding: 0.45rem 0.65rem;
   border: none;
   background: transparent;
@@ -348,14 +373,27 @@ const {
 .context-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-size: 0.74rem;
   font-weight: 700;
   color: #52525b;
 }
 
+.hub-pending-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+}
+
 .context-select-wrap {
-  min-width: 200px;
+  min-width: 240px;
 }
 
 .transfer-alert-banner {
@@ -414,17 +452,20 @@ const {
 }
 
 .req-id {
-  font-family: ui-monospace, monospace;
   font-size: 0.72rem;
   font-weight: 700;
   color: #18181b;
 }
 
 .req-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.65rem;
   font-weight: 700;
-  padding: 0.1rem 0.45rem;
+  padding: 0.12rem 0.45rem;
   background: #fef3c7;
+  border: 1px solid #fde68a;
   color: #92400e;
   border-radius: 9999px;
 }
@@ -446,8 +487,9 @@ const {
   gap: 0.3rem;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #b45309;
-  background: #fffbeb;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
   padding: 0.15rem 0.5rem;
   border-radius: 6px;
   width: fit-content;
@@ -596,7 +638,7 @@ const {
 }
 
 .font-mono {
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .stock-deficit-warning {
@@ -640,7 +682,7 @@ const {
 
 .empty-requests-state {
   text-align: center;
-  padding: 2.5rem 1.5rem;
+  padding: 3rem 1.5rem;
   background: #fafafa;
   border: 1.5px dashed #e4e4e7;
   border-radius: 18px;
@@ -652,6 +694,10 @@ const {
 
 .empty-icon-wrap {
   color: #16a34a;
+}
+
+.empty-icon {
+  color: #a1a1aa;
 }
 
 .empty-requests-state h4 {
@@ -671,16 +717,27 @@ const {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .transit-card {
-  border: 1.5px solid #e4e4e7;
+  border: 1px solid #e4e4e7;
   background: #ffffff;
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  padding: 0.95rem 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.65rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.transit-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
 }
 
 .transit-header {
@@ -689,26 +746,77 @@ const {
   align-items: center;
 }
 
+.d-manifest-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.d-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
 .t-manifest {
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #18181b;
 }
 
 .status-pill-transit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #1e40af;
-  background: #dbeafe;
-  padding: 0.15rem 0.55rem;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.18rem 0.55rem;
   border-radius: 9999px;
 }
 
-.t-route {
+.transit-body {
   display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.t-route {
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
+  gap: 0.45rem;
+  background: #f4f4f5;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  width: fit-content;
+  font-size: 0.74rem;
+}
+
+.route-hub {
+  font-weight: 700;
+  color: #18181b;
+}
+
+.route-arrow {
+  color: #71717a;
+}
+
+.route-dest {
+  color: #52525b;
+}
+
+.t-product-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.t-product-title {
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #18181b;
 }
 
@@ -718,9 +826,16 @@ const {
 }
 
 .t-courier {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.72rem;
   color: #71717a;
-  font-style: italic;
+  background: #fafafa;
+  border: 1px solid #e4e4e7;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  width: fit-content;
 }
 
 .transit-footer {
@@ -733,6 +848,14 @@ const {
   color: #71717a;
   flex-wrap: wrap;
   gap: 0.25rem;
+}
+
+.t-time {
+  font-weight: 600;
+}
+
+.t-note {
+  color: #a1a1aa;
 }
 
 @media (max-width: 640px) {

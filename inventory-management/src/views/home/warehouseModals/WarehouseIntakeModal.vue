@@ -38,9 +38,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'confirm'])
 
 const {
-  store, // <--- ADD THIS (fixes the undefined flatVariants error)
+  store,
   activeMode,
-  setActiveMode, // <--- ADD THIS (enables clicking between tabs)
+  setActiveMode,
   intakeBranchId,
   intakeVariantId,
   intakeTier,
@@ -81,7 +81,7 @@ const {
         :class="{ active: activeMode === 'supplier' }"
         @click="setActiveMode('supplier')"
       >
-        <PackagePlus :size="14" />
+        <PackagePlus :size="14" stroke-width="2.2" />
         <span>Supplier PO Dock</span>
       </button>
 
@@ -91,7 +91,7 @@ const {
         :class="{ active: activeMode === 'incoming' }"
         @click="setActiveMode('incoming')"
       >
-        <Truck :size="14" />
+        <Truck :size="14" stroke-width="2.2" />
         <span>Incoming Deliveries</span>
         <span v-if="inTransitCount > 0" class="badge-count-blue">{{ inTransitCount }}</span>
       </button>
@@ -100,7 +100,7 @@ const {
     <!-- Active Receiving Branch Context -->
     <div class="branch-context-strip">
       <div class="context-label">
-        <Store :size="12" />
+        <Store :size="13" stroke-width="2.2" />
         <span>Receiving at Branch:</span>
       </div>
       <div class="context-select-wrap">
@@ -114,7 +114,7 @@ const {
 
     <!-- Alert Feedback -->
     <div v-if="intakeFeedback" class="intake-alert-banner">
-      <CheckCircle2 :size="15" />
+      <CheckCircle2 :size="15" stroke-width="2.2" />
       <span>{{ intakeFeedback }}</span>
     </div>
 
@@ -145,7 +145,8 @@ const {
               {{ activeVariant.sizeCapacity }}
             </span>
             <span v-if="activeVariant.isPerishable" class="preview-tag tag-perishable">
-              <Clock :size="10" /> Perishable ({{ activeVariant.shelfLifeDays }}d)
+              <Clock :size="10" stroke-width="2.2" />
+              <span>Perishable ({{ activeVariant.shelfLifeDays }}d)</span>
             </span>
           </div>
         </div>
@@ -155,7 +156,7 @@ const {
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
-            <Layers :size="12" />
+            <Layers :size="12" stroke-width="2.2" />
             <span>Packaging Matrix Tier</span>
           </label>
           <IosSelect v-model="intakeTier" :options="tierOptions" title="Select Packaging Tier" />
@@ -180,7 +181,7 @@ const {
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
-            <MapPin :size="12" />
+            <MapPin :size="12" stroke-width="2.2" />
             <span>Storage Bay / Bin</span>
           </label>
           <input
@@ -194,7 +195,7 @@ const {
 
         <div class="input-group">
           <label class="label-with-icon">
-            <FileText :size="12" />
+            <FileText :size="12" stroke-width="2.2" />
             <span>Batch / Lot #</span>
           </label>
           <input
@@ -211,7 +212,7 @@ const {
       <div class="form-grid-2">
         <div class="input-group">
           <label class="label-with-icon">
-            <Calendar :size="12" />
+            <Calendar :size="12" stroke-width="2.2" />
             <span>Expiry Date (FEFO)</span>
           </label>
           <input
@@ -224,7 +225,7 @@ const {
 
         <div class="input-group">
           <label class="label-with-icon">
-            <FileText :size="12" />
+            <FileText :size="12" stroke-width="2.2" />
             <span>Purchase Order Reference</span>
           </label>
           <input
@@ -240,7 +241,7 @@ const {
       <div class="intake-metrics-card">
         <div class="metric-row">
           <span class="metric-label">Total Credited Units:</span>
-          <span class="metric-val text-credit">
+          <span class="metric-val text-credit font-mono">
             +{{ calculatedUnits }} {{ activeVariant?.uom?.level1?.unit }}
           </span>
         </div>
@@ -256,7 +257,7 @@ const {
       </div>
 
       <button type="submit" class="btn-dock" :disabled="intakeQty <= 0 || !activeVariant">
-        <PackagePlus :size="16" />
+        <PackagePlus :size="16" stroke-width="2.2" />
         <span>Confirm & Receive Freight into Inventory</span>
       </button>
     </form>
@@ -264,16 +265,16 @@ const {
     <!-- 2. INCOMING BRANCH DELIVERIES & TRANSFERS -->
     <div v-else-if="activeMode === 'incoming'" class="deliveries-pane">
       <div v-if="incomingTransfersForBranch.length === 0" class="empty-state-box">
-        <Truck :size="28" />
-        <h4>No Incoming Shipments for this Branch</h4>
+        <Truck :size="32" stroke-width="1.8" class="empty-icon" />
+        <h4>No Incoming Shipments</h4>
         <p>
-          Transfers dispatched by the central commissary or other branches will appear here to
-          accept.
+          Transfers dispatched by the central commissary or neighboring hubs en route to this
+          storefront will appear here to inspect and accept.
         </p>
       </div>
 
       <div v-else class="deliveries-list">
-        <div
+        <article
           v-for="item in incomingTransfersForBranch"
           :key="item.id"
           class="delivery-card"
@@ -282,37 +283,53 @@ const {
             'card-received': item.status === 'completed',
           }"
         >
+          <!-- Card Header: Manifest & Professional Status Badge -->
           <div class="delivery-header">
-            <div class="d-manifest font-mono">{{ item.manifestNo || item.id }}</div>
+            <div class="d-manifest-group">
+              <span class="d-label">Manifest</span>
+              <span class="d-manifest font-mono">{{ item.manifestNo || item.id }}</span>
+            </div>
+
             <span v-if="item.status === 'in_transit'" class="badge-status-transit">
-              🚚 In Transit
+              <Truck :size="12" stroke-width="2.2" />
+              <span>In Transit</span>
             </span>
-            <span v-else class="badge-status-completed">✅ Received & In Stock</span>
+            <span v-else class="badge-status-completed">
+              <CheckCircle2 :size="12" stroke-width="2.2" />
+              <span>Received & Stocked</span>
+            </span>
           </div>
 
+          <!-- Card Body: Route, Cargo Details, Driver Note, POS Hold Alert -->
           <div class="delivery-body">
             <div class="d-route">
-              <strong>{{ getBranchName(item.fulfillingBranchId) }}</strong>
-              <ArrowRightLeft :size="12" />
-              <span>This Branch ({{ getBranchName(item.requestingBranchId) }})</span>
+              <span class="route-hub">{{ getBranchName(item.fulfillingBranchId) }}</span>
+              <ArrowRightLeft :size="12" stroke-width="2.2" class="route-arrow" />
+              <span class="route-dest">{{ getBranchName(item.requestingBranchId) }}</span>
             </div>
+
             <div class="d-product">
-              <strong>
+              <div class="d-product-title">
                 {{ store.flatVariants.find((v) => v.id === item.variantId)?.fullName }}
-              </strong>
+              </div>
               <div class="d-qty-note">
-                Shipment: {{ item.qty }} {{ item.tier }} (+{{ item.totalUnits }} units)
+                Payload: <strong>{{ item.qty }} {{ item.tier }}</strong>
+                <span class="d-units-sub font-mono">(+{{ item.totalUnits }} units)</span>
               </div>
             </div>
+
             <div v-if="item.courierNotes" class="d-driver">
-              Courier Note: {{ item.courierNotes }}
+              <FileText :size="11" stroke-width="2.2" />
+              <span>Logistics Note: {{ item.courierNotes }}</span>
             </div>
+
             <div v-if="item.holdSale" class="d-hold-alert">
-              <Clock :size="12" />
-              <span>Linked Customer Sale is ON HOLD pending this delivery</span>
+              <Clock :size="12" stroke-width="2.2" />
+              <span>Linked POS customer sale is on hold pending this delivery</span>
             </div>
           </div>
 
+          <!-- Card Footer Action -->
           <div class="delivery-actions">
             <button
               v-if="item.status === 'in_transit'"
@@ -320,15 +337,18 @@ const {
               class="btn-accept-delivery"
               @click="handleAcceptDelivery(item.id)"
             >
-              <CheckCircle2 :size="15" />
-              <span>Accept & Confirm Delivery (+{{ item.totalUnits }} units)</span>
+              <CheckCircle2 :size="14" stroke-width="2.2" />
+              <span>Accept & Verify Inbound Stock (+{{ item.totalUnits }} units)</span>
             </button>
+
             <div v-else class="received-stamp">
-              <ShieldCheck :size="14" />
-              <span>Received at {{ item.receivedAt || 'Today' }} · Stock Credited</span>
+              <ShieldCheck :size="14" stroke-width="2.2" />
+              <span
+                >Received at {{ item.receivedAt || 'Today' }} · Stock Credited to Storefront</span
+              >
             </div>
           </div>
-        </div>
+        </article>
       </div>
     </div>
   </BaseModal>
@@ -350,7 +370,7 @@ const {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   padding: 0.45rem 0.65rem;
   border: none;
   background: transparent;
@@ -460,7 +480,7 @@ const {
 }
 
 .font-mono {
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .selected-variant-preview {
@@ -578,7 +598,7 @@ const {
 
 .empty-state-box {
   text-align: center;
-  padding: 2.5rem 1.5rem;
+  padding: 3rem 1.5rem;
   background: #fafafa;
   border: 1.5px dashed #e4e4e7;
   border-radius: 18px;
@@ -586,6 +606,10 @@ const {
   flex-direction: column;
   align-items: center;
   gap: 0.45rem;
+}
+
+.empty-icon {
+  color: #a1a1aa;
 }
 
 .empty-state-box h4 {
@@ -605,26 +629,36 @@ const {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .delivery-card {
-  border: 1.5px solid #e4e4e7;
+  border: 1px solid #e4e4e7;
   background: #ffffff;
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  padding: 0.95rem 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .card-in-transit {
-  border-color: #93c5fd;
-  background: #f0f7ff;
+  border-color: #bfdbfe;
+  background: #fafcff;
+}
+
+.card-in-transit:hover {
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
 }
 
 .card-received {
   border-color: #bbf7d0;
-  background: #f0fdf4;
+  background: #fdfdfd;
 }
 
 .delivery-header {
@@ -633,65 +667,133 @@ const {
   align-items: center;
 }
 
+.d-manifest-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.d-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
 .d-manifest {
-  font-size: 0.85rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #18181b;
 }
 
 .badge-status-transit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.68rem;
   font-weight: 700;
   color: #1d4ed8;
-  background: #dbeafe;
-  padding: 0.15rem 0.55rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0.18rem 0.55rem;
   border-radius: 9999px;
 }
 
 .badge-status-completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.68rem;
   font-weight: 700;
   color: #15803d;
-  background: #dcfce7;
-  padding: 0.15rem 0.55rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 0.18rem 0.55rem;
   border-radius: 9999px;
 }
 
-.d-route {
+.delivery-body {
   display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.d-route {
+  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
+  gap: 0.45rem;
+  background: #f4f4f5;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  width: fit-content;
+  font-size: 0.74rem;
+}
+
+.route-hub {
+  font-weight: 700;
   color: #18181b;
 }
 
-.d-product strong {
-  font-size: 0.82rem;
+.route-arrow {
+  color: #71717a;
+}
+
+.route-dest {
+  color: #52525b;
+}
+
+.d-product {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.d-product-title {
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #18181b;
 }
 
 .d-qty-note {
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   color: #52525b;
 }
 
+.d-units-sub {
+  color: #16a34a;
+  font-weight: 700;
+  margin-left: 0.25rem;
+}
+
 .d-driver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.72rem;
   color: #71717a;
-  font-style: italic;
+  background: #fafafa;
+  border: 1px solid #e4e4e7;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  width: fit-content;
 }
 
 .d-hold-alert {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #b45309;
+  color: #92400e;
   background: #fef3c7;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
+  border: 1px solid #fde68a;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
   width: fit-content;
+}
+
+.delivery-actions {
+  margin-top: 0.2rem;
 }
 
 .btn-accept-delivery {
@@ -699,7 +801,7 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   padding: 0.65rem 1rem;
   background: #18181b;
   color: #ffffff;

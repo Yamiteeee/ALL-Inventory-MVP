@@ -34,10 +34,31 @@ export function useCatalog() {
 
   // Normalized branch options for IosSelect
   const branchOptions = computed(() => {
-    return store.branches.map((b) => ({
-      value: b.id,
-      label: `${b.name} Branch`,
-    }))
+    return store.branches.map((b) => {
+      const pendingCount = (store.transferRequests || []).filter(
+        (r) => r.requestingBranchId === b.id && r.status === 'pending',
+      ).length
+      const inTransitCount = (store.transferRequests || []).filter(
+        (r) => r.requestingBranchId === b.id && r.status === 'in_transit',
+      ).length
+
+      let badge = ''
+      let sub = 'Inventory nominal'
+
+      if (inTransitCount > 0) {
+        badge = ` (${inTransitCount} arriving)`
+        sub = `${inTransitCount} delivery in transit`
+      } else if (pendingCount > 0) {
+        badge = ` (${pendingCount} requested)`
+        sub = `${pendingCount} transfer request pending`
+      }
+
+      return {
+        value: b.id,
+        label: `${b.name} Branch${badge}`,
+        sublabel: sub,
+      }
+    })
   })
 
   // Inbound Freight Intake

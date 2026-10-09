@@ -26,7 +26,7 @@ import {
   CheckCircle2,
 } from 'lucide-vue-next'
 
-// UI-only Animations
+// UI Animations
 usePageEntrance()
 const { displayedText: pageTitle, isComplete: isTypingDone } = useTypewriter(
   CATALOG_UI.header.title,
@@ -59,6 +59,7 @@ const {
   logout,
 } = useCatalog()
 
+// Seamlessly transition from PO History to the Intake Dock
 function openIntakeFromHistory() {
   showPoHistoryModal.value = false
   showIntakeModal.value = true
@@ -92,12 +93,12 @@ function openIntakeFromHistory() {
 
         <!-- Navigation Controls -->
         <div class="nav-controls">
-          <!-- 1. PO Receiving History & Inbound Freight (Opens Summary First) -->
+          <!-- 1. Top Button opens the DEFAULT Intake Modal directly -->
           <button
             type="button"
             class="btn btn-action-primary"
-            title="PO Receiving History & Inbound Dock"
-            @click="showPoHistoryModal = true"
+            title="Receive Supplier PO & Accept Incoming Deliveries"
+            @click="showIntakeModal = true"
           >
             <PackagePlus :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ CATALOG_UI.header.receiveButton }}</span>
@@ -106,7 +107,7 @@ function openIntakeFromHistory() {
             </span>
           </button>
 
-          <!-- 2. Hub Transfer -->
+          <!-- 2. Hub Transfer & Dispatch Queue -->
           <button
             type="button"
             class="btn btn-secondary"
@@ -179,12 +180,12 @@ function openIntakeFromHistory() {
           </div>
           <div class="kpi-divider"></div>
 
-          <!-- KPI: Clicking opens PO History Summary Modal -->
+          <!-- Bottom KPI Bar Item: Click here to open the PO History Summary Modal -->
           <div
             class="kpi-item kpi-link"
             role="button"
             tabindex="0"
-            title="View Inbound PO Receiving Logs"
+            title="View Inbound PO Receiving History"
             @click="showPoHistoryModal = true"
           >
             <span class="kpi-label">{{ CATALOG_UI.kpiLabels.poCount }}</span>
@@ -276,7 +277,7 @@ function openIntakeFromHistory() {
               </div>
             </header>
 
-            <!-- Nested Variants Dropdown with JS Spring Transition -->
+            <!-- Nested Variants Dropdown -->
             <Transition v-bind="dropdownTransition">
               <div v-show="expandedParents[parent.parentId]" class="node-body">
                 <div class="table-container">
@@ -411,7 +412,7 @@ function openIntakeFromHistory() {
       </div>
     </div>
 
-    <!-- 1. PO Intake History & Summary Modal (Opened First) -->
+    <!-- PO History Modal: Opened strictly from the bottom KPI counter -->
     <WarehousePoHistoryModal
       :show="showPoHistoryModal"
       :initial-branch-id="selectedBranchId !== 'all' ? selectedBranchId : 'all'"
@@ -419,7 +420,7 @@ function openIntakeFromHistory() {
       @create-new="openIntakeFromHistory"
     />
 
-    <!-- 2. Freight Dock Intake Form Modal -->
+    <!-- Default Intake Modal: Opened from top nav button (includes Incoming Deliveries tab) -->
     <WarehouseIntakeModal
       :show="showIntakeModal"
       :variants="store.flatVariants"
@@ -429,7 +430,7 @@ function openIntakeFromHistory() {
       @confirm="onIntakeConfirm"
     />
 
-    <!-- 3. Hub-to-Hub Freight Transfer Modal -->
+    <!-- Hub Transfer Modal -->
     <WarehouseTransferModal
       :show="showTransferModal"
       :variants="store.flatVariants"
