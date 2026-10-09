@@ -146,6 +146,45 @@ const unifiedTransactions = computed(() => {
     })
   })
 
+  // 4. Inter-Branch Transfer Requests & Restock Shipments
+  ;(store.transferRequests || []).forEach((tr) => {
+    const variant = store.flatVariants.find((v) => v.id === tr.variantId)
+    const fromBranch = store.branches.find((b) => b.id === tr.fulfillingBranchId)
+    const toBranch = store.branches.find((b) => b.id === tr.requestingBranchId)
+
+    feed.push({
+      id: `req-${tr.id}`,
+      refNo: tr.manifestNo || tr.id,
+      category: 'WS',
+      typeLabel: 'Branch Restock Request',
+      timestamp: tr.createdAt || 'Today',
+      origin: {
+        name: fromBranch?.name || tr.fulfillingBranchId,
+        type: 'W',
+        branchId: tr.fulfillingBranchId,
+      },
+      destination: {
+        name: toBranch?.name || tr.requestingBranchId,
+        type: 'S',
+        branchId: tr.requestingBranchId,
+      },
+      productName: variant?.fullName || tr.variantId,
+      sku: variant?.sku || '',
+      qtyDisplay: `${tr.totalUnits} ${variant?.uom?.level1?.unit || 'units'} (${tr.qty} ${tr.tier})`,
+      partyLabel: 'Carrier',
+      partyValue: tr.courierNotes || 'Scheduled Fleet Delivery',
+      status:
+        tr.status === 'in_transit'
+          ? 'In Transit'
+          : tr.status === 'completed'
+            ? 'Received'
+            : 'Pending Dispatch',
+      notes: tr.notes || 'Inter-Branch Stock Request',
+      amount: null,
+      rawTime: Date.now(),
+    })
+  })
+
   return feed.sort((a, b) => b.rawTime - a.rawTime)
 })
 

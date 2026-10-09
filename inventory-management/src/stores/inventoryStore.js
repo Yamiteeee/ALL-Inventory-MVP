@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useInventoryStore = defineStore('inventory', () => {
@@ -686,10 +686,38 @@ export const useInventoryStore = defineStore('inventory', () => {
   }
 
   // Branch Stocks tied to All Variant IDs: { branchId: { variantId: baseUnitStock } }
-  const branchStocks = ref(JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS)))
+  const savedStocks = localStorage.getItem('inventory_branch_stocks')
+  const branchStocks = ref(
+    savedStocks ? JSON.parse(savedStocks) : JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS)),
+  )
+
+  function saveBranchStocks() {
+    localStorage.setItem('inventory_branch_stocks', JSON.stringify(branchStocks.value))
+  }
+
+  // Clean empty default for transfer requests (No pre-seeded mock records)
+  const savedTransferRequests = localStorage.getItem('inventory_transfer_requests')
+  const transferRequests = ref(savedTransferRequests ? JSON.parse(savedTransferRequests) : [])
+
+  function saveTransferRequests() {
+    localStorage.setItem('inventory_transfer_requests', JSON.stringify(transferRequests.value))
+  }
+
+  // Clean empty default for held sales (No pre-seeded mock records)
+  const savedHeldSales = localStorage.getItem('inventory_held_sales')
+  const heldSales = ref(savedHeldSales ? JSON.parse(savedHeldSales) : [])
+
+  function saveHeldSales() {
+    localStorage.setItem('inventory_held_sales', JSON.stringify(heldSales.value))
+  }
 
   function resetDemoStocks() {
     branchStocks.value = JSON.parse(JSON.stringify(DEFAULT_BRANCH_STOCKS))
+    transferRequests.value = []
+    heldSales.value = []
+    saveBranchStocks()
+    saveTransferRequests()
+    saveHeldSales()
   }
 
   // Customer Loyalty List
@@ -777,6 +805,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     }
     const current = branchStocks.value[branchId][variantId] || 0
     branchStocks.value[branchId][variantId] = current + totalBaseUnits
+    saveBranchStocks()
 
     const branch = branches.value.find((b) => b.id === branchId)
 
@@ -803,7 +832,13 @@ export const useInventoryStore = defineStore('inventory', () => {
   }
 
   // POS Sales Action with Selective Profile Updates
-  const salesHistory = ref([])
+  const savedSalesHistory = localStorage.getItem('inventory_sales_history')
+  const salesHistory = ref(savedSalesHistory ? JSON.parse(savedSalesHistory) : [])
+
+  function saveSalesHistory() {
+    localStorage.setItem('inventory_sales_history', JSON.stringify(salesHistory.value))
+  }
+
   function recordSale({
     branchId,
     variantId,
@@ -813,20 +848,22 @@ export const useInventoryStore = defineStore('inventory', () => {
     specialDiscountPercent,
     specialReason,
     updateDefaultDiscount = false,
+    isHeld = false,
   }) {
     const currentStock = branchStocks.value[branchId]?.[variantId] || 0
     const qty = Number(quantity)
 
-    if (currentStock < qty) {
+    if (currentStock < qty && !isHeld) {
       throw new Error(`Insufficient stock. Only ${currentStock} left in this branch.`)
     }
 
-    branchStocks.value[branchId][variantId] = currentStock - qty
+    branchStocks.value[branchId][variantId] = Math.max(0, currentStock - qty)
+    saveBranchStocks()
 
     const variant = flatVariants.value.find((v) => v.id === variantId)
     const branch = branches.value.find((b) => b.id === branchId)
 
-    const subtotal = variant.baseCost * qty
+    const subtotal = (variant?.baseCost || 0) * qty
     const totalDiscountPercent = Math.min(
       100,
       Number(buyerDiscountPercent || 0) + Number(specialDiscountPercent || 0),
@@ -852,18 +889,218 @@ export const useInventoryStore = defineStore('inventory', () => {
       date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       branchName: branch?.name || branchId,
       branchId: branchId,
-      productName: variant.fullName,
-      unit: variant.uom.level1.unit,
+      productName: variant?.fullName || variantId,
+      unit: variant?.uom?.level1?.unit || 'unit',
       quantity: qty,
       subtotal,
       totalDiscountPercent,
       discountAmount,
       finalTotal,
       customerName: customerName.trim() || 'Walk-in Retail Buyer',
-      specialReason: specialReason || 'Regular Sale',
+      specialReason:
+        specialReason || (isHeld ? 'On Hold (Pending Inbound Transfer)' : 'Regular Sale'),
+      isHeld,
+      status: isHeld ? 'On Hold (Pending Transfer)' : 'Completed',
     })
 
+    saveSalesHistory()
     return finalTotal
+  }
+
+  // Inter-Branch Stock Request Actions
+  function createTransferRequest({
+    requestingBranchId,
+    fulfillingBranchId,
+    variantId,
+    qty = 1,
+    tier = 'level1',
+    totalUnits = null,
+    notes = '',
+    holdSale = false,
+    heldCustomerName = '',
+  }) {
+    const variant = flatVariants.value.find((v) => v.id === variantId)
+    if (!variant) throw new Error('Variant not found')
+
+    let units = totalUnits
+    if (!units) {
+      const l2 = variant.uom?.level2?.multiplier || 1
+      const l3 = variant.uom?.level3?.multiplier || 1
+      if (tier === 'level3') units = qty * l2 * l3
+      else if (tier === 'level2') units = qty * l2
+      else units = qty
+    }
+
+    const newReq = {
+      id: `REQ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      requestingBranchId,
+      fulfillingBranchId,
+      variantId,
+      qty: Number(qty),
+      tier,
+      totalUnits: Number(units),
+      status: 'pending',
+      manifestNo: '',
+      notes: notes || 'Branch Stock Replenishment Request',
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      dispatchedAt: null,
+      receivedAt: null,
+      holdSale,
+      heldCustomerName,
+    }
+
+    transferRequests.value.unshift(newReq)
+    saveTransferRequests()
+    return newReq
+  }
+
+  function dispatchTransferRequest(requestId, { courierNotes = '', manifestNo = '' } = {}) {
+    const req = transferRequests.value.find((r) => r.id === requestId)
+    if (!req) throw new Error('Transfer request not found')
+    if (req.status !== 'pending') throw new Error('Request is not in pending state')
+
+    if (!branchStocks.value[req.fulfillingBranchId]) {
+      branchStocks.value[req.fulfillingBranchId] = {}
+    }
+    const available = branchStocks.value[req.fulfillingBranchId][req.variantId] || 0
+    if (available < req.totalUnits) {
+      throw new Error(
+        `Insufficient stock in fulfilling branch. Needs ${req.totalUnits}, but only ${available} available.`,
+      )
+    }
+
+    // Deduct stock from the fulfilling warehouse immediately upon dispatch
+    branchStocks.value[req.fulfillingBranchId][req.variantId] = available - req.totalUnits
+    saveBranchStocks()
+
+    req.status = 'in_transit'
+    req.manifestNo =
+      manifestNo || `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+    req.dispatchedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (courierNotes) req.courierNotes = courierNotes
+
+    saveTransferRequests()
+    return req
+  }
+
+  function receiveTransferRequest(requestId) {
+    const req = transferRequests.value.find((r) => r.id === requestId)
+    if (!req) throw new Error('Transfer request not found')
+    if (req.status !== 'in_transit') throw new Error('Request is not in transit')
+
+    // Credit units into the receiving store's inventory
+    if (!branchStocks.value[req.requestingBranchId]) {
+      branchStocks.value[req.requestingBranchId] = {}
+    }
+    const current = branchStocks.value[req.requestingBranchId][req.variantId] || 0
+    branchStocks.value[req.requestingBranchId][req.variantId] = current + req.totalUnits
+    saveBranchStocks()
+
+    // Transition status to completed.
+    // NOTE: This does NOT auto-complete the sale in POS — it simply marks the freight received!
+    req.status = 'completed'
+    req.receivedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    saveTransferRequests()
+    return req
+  }
+
+  function cancelTransferRequest(requestId) {
+    const req = transferRequests.value.find((r) => r.id === requestId)
+    if (!req) return
+    if (req.status === 'in_transit') {
+      const current = branchStocks.value[req.fulfillingBranchId]?.[req.variantId] || 0
+      branchStocks.value[req.fulfillingBranchId][req.variantId] = current + req.totalUnits
+      saveBranchStocks()
+    }
+    req.status = 'cancelled'
+    saveTransferRequests()
+  }
+
+  // Held Orders Actions (Separated from direct checkouts)
+  function createHeldSale({
+    branchId,
+    customerName,
+    items = [],
+    totalAmount,
+    discountPercent = 0,
+    requestId = '',
+    requestIds = [],
+    sourceBranchId = 'b-commissary',
+    sourceBranchName = 'Main Commissary / Central Hub',
+    specialReason = '',
+  }) {
+    const orderRef = `ORD-${Date.now().toString().slice(-6)}`
+    const newHold = {
+      id: `HOLD-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      orderRef,
+      branchId,
+      customerName: customerName || 'Walk-in Retail Buyer',
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      requestId,
+      requestIds: requestIds.length ? requestIds : requestId ? [requestId] : [],
+      sourceBranchId,
+      sourceBranchName,
+      totalAmount: Number(totalAmount) || 0,
+      discountPercent: Number(discountPercent) || 0,
+      specialReason: specialReason || '',
+      items: JSON.parse(JSON.stringify(items)),
+    }
+    heldSales.value.unshift(newHold)
+    saveHeldSales()
+    return newHold
+  }
+
+  function completeHeldSale(holdId) {
+    const idx = heldSales.value.findIndex((h) => h.id === holdId)
+    if (idx === -1) throw new Error('Held order not found')
+    const hold = heldSales.value[idx]
+
+    // Verify and deduct stock for each item from receiving branch inventory
+    hold.items.forEach((item) => {
+      if (!branchStocks.value[hold.branchId]) {
+        branchStocks.value[hold.branchId] = {}
+      }
+      const cur = branchStocks.value[hold.branchId][item.variantId] || 0
+      branchStocks.value[hold.branchId][item.variantId] = Math.max(0, cur - item.quantity)
+
+      const variant = flatVariants.value.find((v) => v.id === item.variantId)
+      const branch = branches.value.find((b) => b.id === hold.branchId)
+
+      salesHistory.value.unshift({
+        id: Date.now() + Math.floor(Math.random() * 1000000),
+        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        branchName: branch?.name || hold.branchId,
+        branchId: hold.branchId,
+        productName: item.fullName || variant?.fullName || item.variantId,
+        unit: item.unit || variant?.uom?.level1?.unit || 'unit',
+        quantity: item.quantity,
+        subtotal: item.unitPrice * item.quantity,
+        totalDiscountPercent: hold.discountPercent || 0,
+        discountAmount: item.unitPrice * item.quantity * ((hold.discountPercent || 0) / 100),
+        finalTotal: item.unitPrice * item.quantity * (1 - (hold.discountPercent || 0) / 100),
+        customerName: hold.customerName,
+        specialReason: `[${hold.orderRef}] Released from Hold · Transfer ${hold.requestId || 'Delivery'} Complete`,
+        isHeld: false,
+        status: 'Completed (Released to Client)',
+      })
+    })
+
+    saveBranchStocks()
+    saveSalesHistory()
+
+    // Remove from held queue
+    heldSales.value.splice(idx, 1)
+    saveHeldSales()
+    return hold
+  }
+
+  function cancelHeldSale(holdId) {
+    const idx = heldSales.value.findIndex((h) => h.id === holdId)
+    if (idx !== -1) {
+      heldSales.value.splice(idx, 1)
+      saveHeldSales()
+    }
   }
 
   return {
@@ -874,6 +1111,15 @@ export const useInventoryStore = defineStore('inventory', () => {
     customers,
     stockInHistory,
     salesHistory,
+    transferRequests,
+    heldSales,
+    createHeldSale,
+    completeHeldSale,
+    cancelHeldSale,
+    createTransferRequest,
+    dispatchTransferRequest,
+    receiveTransferRequest,
+    cancelTransferRequest,
     generateVariantName,
     calculateCBM,
     saveOrUpdateCustomer,
@@ -883,3 +1129,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     resetDemoStocks,
   }
 })
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useInventoryStore, import.meta.hot))
+}

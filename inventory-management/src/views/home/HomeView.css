@@ -309,6 +309,28 @@
   flex-wrap: wrap;
 }
 
+.btn-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 0.15rem 0.42rem;
+  border-radius: 9999px;
+  line-height: 1;
+  margin-left: 0.25rem;
+}
+
+.badge-amber {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.badge-blue {
+  background: #2563eb;
+  color: #ffffff;
+}
+
 /* Feedback Alert Banner */
 .alert {
   display: flex;
@@ -1021,7 +1043,7 @@
   }
 
   .btn-signout {
-    grid-column: span 2 !important;
+    grid-column: auto !important;
     width: 100% !important;
   }
 

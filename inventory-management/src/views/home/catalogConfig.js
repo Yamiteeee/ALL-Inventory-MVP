@@ -8,7 +8,6 @@ export const CATALOG_UI = {
     receiveButton: 'Receive PO',
     dockButton: 'Receive PO',
     transferButton: 'Hub Transfer',
-    dispatchButton: 'Dispatch Store',
     transportButton: 'Goods Transport',
   },
   kpiLabels: {
@@ -48,18 +47,11 @@ export const CATALOG_UI = {
       title: 'Hub-to-Hub Freight Transfer',
       submitButton: 'Dispatch Inter-Warehouse Freight',
     },
-    dispatch: {
-      eyebrow: 'Storefront Replenishment',
-      title: 'Dispatch Freight to Storefront Branch',
-      submitButton: 'Confirm & Dispatch Stock to Branch',
-    },
     banners: {
       intake: (qty, tierLabel, variantName, totalUnits, unit, branchName, bay) =>
         `Docked ${qty} ${tierLabel} of ${variantName} (+${totalUnits} ${unit}) into ${branchName} (${bay})!`,
       transfer: (totalUnits, unit, variantName, fromName, toName, manifestNo) =>
         `Relocated ${totalUnits} ${unit} of ${variantName} (${fromName} → ${toName})! [${manifestNo}]`,
-      dispatch: (qty, tierLabel, totalUnits, unit, variantName, originName, destName, manifestNo) =>
-        `Dispatched ${qty} ${tierLabel} (${totalUnits} ${unit}) from ${originName} → ${destName}! [${manifestNo}]`,
     },
   },
 }

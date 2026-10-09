@@ -10,7 +10,6 @@ import IosSelect from '@/components/ui/IosSelect.vue'
 import FloatingDemoHub from '@/components/ui/FloatingDemoHub.vue'
 import WarehouseIntakeModal from './warehouseModals/WarehouseIntakeModal.vue'
 import WarehouseTransferModal from './warehouseModals/WarehouseTransferModal.vue'
-import WarehouseDispatchModal from './warehouseModals/WarehouseDispatchModal.vue'
 
 import {
   Search,
@@ -24,7 +23,6 @@ import {
   Warehouse,
   Truck,
   PackagePlus,
-  ArrowRightLeft,
   CheckCircle2,
 } from 'lucide-vue-next'
 
@@ -46,7 +44,6 @@ const { dropdownTransition } = useDropdownAnimation()
 // Warehouse Logistics Modal Visibility Controls
 const showIntakeModal = ref(false)
 const showTransferModal = ref(false)
-const showDispatchModal = ref(false)
 const successBanner = ref('')
 
 // Inbound Freight Intake
@@ -99,51 +96,21 @@ function onTransferConfirm({ fromWarehouseId, toWarehouseId, variant, totalUnits
   }, 4500)
 }
 
-// Dispatch to Storefront Branch
-function onDispatchConfirm({
-  fromBranchId,
-  toBranchId,
-  variant,
-  qty,
-  tier,
-  totalUnits,
-  manifestNo,
-}) {
-  const originName = store.branches.find((b) => b.id === fromBranchId)?.name || fromBranchId
-  const destName = store.branches.find((b) => b.id === toBranchId)?.name || toBranchId
-
-  if (store.dispatchStock) {
-    store.dispatchStock({
-      fromBranchId,
-      toBranchId,
-      variantId: variant.id,
-      totalUnits,
-      manifestNo,
-    })
-  } else {
-    if (!store.branchStocks[fromBranchId]) store.branchStocks[fromBranchId] = {}
-    if (!store.branchStocks[toBranchId]) store.branchStocks[toBranchId] = {}
-
-    const originStock = store.branchStocks[fromBranchId][variant.id] || 0
-    store.branchStocks[fromBranchId][variant.id] = Math.max(0, originStock - totalUnits)
-
-    const destStock = store.branchStocks[toBranchId][variant.id] || 0
-    store.branchStocks[toBranchId][variant.id] = destStock + totalUnits
-  }
-
-  const tierLabel = tier === 'level3' ? 'pallets' : 'boxes'
-  const unit = variant.uom?.level1?.unit || 'units'
-  successBanner.value = `Dispatched ${qty} ${tierLabel} (${totalUnits} ${unit}) from ${originName} → ${destName}! [${manifestNo}]`
-  showDispatchModal.value = false
-
-  setTimeout(() => {
-    successBanner.value = ''
-  }, 4500)
-}
-
 const selectedBranchId = ref(store.branches[0]?.id || '')
 const searchQuery = ref('')
 const expandedParents = ref({ 'P-100': true, 'P-200': true, 'P-300': true })
+
+// Real-time transfer and delivery notification counts
+const pendingTransfersCount = computed(() => {
+  return (store.transferRequests || []).filter((r) => r.status === 'pending').length
+})
+
+const incomingDeliveriesCount = computed(() => {
+  const currentBranch = selectedBranchId.value === 'all' ? null : selectedBranchId.value
+  return (store.transferRequests || []).filter(
+    (r) => r.status === 'in_transit' && (!currentBranch || r.requestingBranchId === currentBranch),
+  ).length
+})
 
 // Normalized branch options for IosSelect
 const branchOptions = computed(() => {
@@ -292,37 +259,32 @@ function logout() {
           >
             <PackagePlus :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ CATALOG_UI.header.receiveButton }}</span>
+            <span v-if="incomingDeliveriesCount > 0" class="btn-nav-badge badge-blue">
+              {{ incomingDeliveriesCount }}
+            </span>
           </button>
 
           <!-- 2. Hub Transfer -->
           <button
             type="button"
             class="btn btn-secondary"
-            title="Inter-Warehouse Transfer"
+            title="Inter-Warehouse Transfer & Request Orders"
             @click="showTransferModal = true"
           >
             <Warehouse :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ CATALOG_UI.header.transferButton }}</span>
+            <span v-if="pendingTransfersCount > 0" class="btn-nav-badge badge-amber">
+              {{ pendingTransfersCount }}
+            </span>
           </button>
 
-          <!-- 3. Dispatch to Store Branch -->
-          <button
-            type="button"
-            class="btn btn-secondary"
-            title="Dispatch to Store Branch"
-            @click="showDispatchModal = true"
-          >
-            <ArrowRightLeft :size="14" stroke-width="2.2" />
-            <span class="btn-label">{{ CATALOG_UI.header.dispatchButton }}</span>
-          </button>
-
-          <!-- 4. Goods Transport Ledger -->
+          <!-- 3. Goods Transport Ledger -->
           <RouterLink to="/transport" class="btn btn-secondary" title="Goods Transportation Ledger">
             <Truck :size="14" stroke-width="2.2" />
             <span class="btn-label">{{ CATALOG_UI.header.transportButton }}</span>
           </RouterLink>
 
-          <!-- 5. Sign Out -->
+          <!-- 4. Sign Out -->
           <button
             class="btn btn-secondary btn-signout"
             title="Sign Out"
@@ -621,15 +583,6 @@ function logout() {
       :current-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
       @close="showTransferModal = false"
       @confirm="onTransferConfirm"
-    />
-
-    <WarehouseDispatchModal
-      :show="showDispatchModal"
-      :variants="store.flatVariants"
-      :branches="store.branches"
-      :current-branch-id="selectedBranchId !== 'all' ? selectedBranchId : store.branches[0]?.id"
-      @close="showDispatchModal = false"
-      @confirm="onDispatchConfirm"
     />
 
     <!-- Floating Demo Sandbox & Satellite Systems Hub -->
