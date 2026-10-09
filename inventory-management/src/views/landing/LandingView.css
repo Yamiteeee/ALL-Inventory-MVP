@@ -30,7 +30,7 @@
   --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-/* 1. Page Wrapper (Allows Normal Document Flow & Scroll) */
+/* 1. Page Wrapper */
 .landing-viewport {
   min-height: 100vh;
   width: 100%;
@@ -50,7 +50,7 @@
   }
 }
 
-/* 2. Main Content Container (Constrained & Centered) */
+/* 2. Main Content Container */
 .landing-shell {
   width: 100%;
   max-width: 1280px;
@@ -68,11 +68,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.15rem 1.8rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 24px;
-  box-shadow: var(--shadow-soft);
+  padding: 0.85rem 1.6rem;
+  background: var(--off-black);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
   box-sizing: border-box;
   width: 100%;
@@ -84,23 +84,32 @@
   gap: 0.75rem;
 }
 
-.icon-disc {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-pill);
-  background: var(--off-black);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+/* Enlarged Brand Logo */
+.brand-logo {
+  height: 38px;
+  width: auto;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-name {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.top-nav .btn-secondary {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+
+.top-nav .btn-secondary:hover {
+  background-color: #3f3f46 !important;
+  color: #ffffff !important;
 }
 
 /* Buttons */
@@ -145,7 +154,7 @@
   border-color: #d4d4d8 !important;
 }
 
-/* 3. Hero Section (Natural Generous Spacing) */
+/* 3. Hero Section */
 .hero-section {
   display: flex;
   align-items: center;
@@ -181,6 +190,23 @@
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.hero-title > span {
+  grid-area: 1 / 1;
+}
+
+.ghost-reserve {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.typing-active {
+  width: 100%;
 }
 
 .hero-subtitle {
@@ -197,6 +223,14 @@
   gap: 0.85rem;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.btn-arrow {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-action-primary:hover .btn-arrow {
+  transform: translateX(3px);
 }
 
 /* 4. Feature Cards */
@@ -251,7 +285,7 @@
   line-height: 1.5;
 }
 
-/* 5. Full-Width Off-Black Footer Section */
+/* 5. Full-Width Off-Black Footer */
 .landing-footer {
   width: 100%;
   background-color: var(--off-black);
@@ -344,149 +378,9 @@
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN (Tablets & Mobile)
+   Typewriter Caret & Dot-Heart Morph
    ========================================================================== */
 
-/* Tablet (<= 1024px) */
-@media (max-width: 1024px) {
-  .hero-section {
-    padding: 3.5rem 0 2.5rem 0;
-  }
-
-  .features-grid {
-    gap: 1.15rem;
-  }
-
-  .footer-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1.25rem;
-    padding: 2rem 1.5rem;
-  }
-
-  .footer-right {
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-/* Mobile (<= 768px) */
-@media (max-width: 768px) {
-  .landing-shell {
-    padding: 1rem 1rem 3rem 1rem;
-    padding-left: max(1rem, env(safe-area-inset-left));
-    padding-right: max(1rem, env(safe-area-inset-right));
-  }
-
-  .top-nav {
-    padding: 0.9rem 1.2rem;
-    border-radius: var(--radius-lg);
-  }
-
-  .hero-section {
-    padding: 2.75rem 0.25rem 2rem 0.25rem;
-  }
-
-  .hero-title {
-    font-size: 2.15rem;
-  }
-
-  .hero-subtitle {
-    font-size: 0.95rem;
-    margin-bottom: 1.75rem;
-  }
-
-  .cta-group {
-    width: 100%;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .cta-group .btn {
-    width: 100%;
-    min-height: 48px;
-  }
-
-  .features-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-
-  .feature-card {
-    padding: 1.4rem 1.25rem;
-  }
-
-  .footer-container {
-    padding: 2rem 1rem;
-    padding-bottom: max(2rem, env(safe-area-inset-bottom));
-    gap: 1.5rem;
-  }
-
-  .footer-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.85rem;
-  }
-
-  .tech-tags {
-    flex-wrap: wrap;
-  }
-
-  .footer-right {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    width: 100%;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-dark);
-  }
-
-  .footer-divider {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-  }
-}
-/* Zero-shift layout lock for typewriter */
-.hero-title {
-  display: grid;
-  place-items: center;
-  position: relative;
-}
-
-.hero-title > span {
-  grid-area: 1 / 1;
-}
-
-.ghost-reserve {
-  visibility: hidden;
-  pointer-events: none;
-  user-select: none;
-}
-
-.typing-active {
-  width: 100%;
-}
-
-/* Button micro-interaction */
-.btn-arrow {
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.btn-action-primary:hover .btn-arrow {
-  transform: translateX(3px);
-}
-
-/* ==========================================================================
-   Typewriter Caret & Dot-Heart Morph Micro-Interaction
-   ========================================================================== */
-
-/* 1. Active Typing Caret (Blinking |) */
 .typewriter-cursor {
   display: inline-block;
   margin-left: 2px;
@@ -505,7 +399,6 @@
   }
 }
 
-/* 2. Container holding the synchronized Dot & Heart */
 .morph-period {
   display: inline-grid;
   place-items: center;
@@ -526,7 +419,6 @@
   will-change: transform, opacity;
 }
 
-/* Apple-style circular punctuation dot */
 .dot-shape {
   width: 6px;
   height: 6px;
@@ -535,17 +427,13 @@
   animation: dotPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
-/* Vibrant heart that beats and takes over */
 .heart-shape {
   font-size: 13px;
   line-height: 1;
-  color: #ef4444; /* Use var(--off-black) if you prefer monochrome */
+  color: #ef4444;
   animation: heartPulseLoop 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
-/* 3. Choreographed Loop Keyframes (4.2s Cycle) */
-
-/* Dot keyframes: Visible for 2 seconds -> scales down -> reappears at end */
 @keyframes dotPulseLoop {
   0%,
   42% {
@@ -567,7 +455,6 @@
   }
 }
 
-/* Heart keyframes: Hidden -> springs in with double pulse -> shrinks out */
 @keyframes heartPulseLoop {
   0%,
   42% {
@@ -576,7 +463,7 @@
   }
   48% {
     opacity: 1;
-    transform: scale(1.3); /* Spring overshoot */
+    transform: scale(1.3);
   }
   54% {
     opacity: 1;
@@ -584,7 +471,7 @@
   }
   60% {
     opacity: 1;
-    transform: scale(1.22); /* Heartbeat bounce */
+    transform: scale(1.22);
   }
   66%,
   86% {
@@ -599,5 +486,100 @@
   100% {
     opacity: 0;
     transform: scale(0);
+  }
+}
+
+/* ==========================================================================
+   Responsive Design
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .hero-section {
+    padding: 3.5rem 0 2.5rem 0;
+  }
+  .features-grid {
+    gap: 1.15rem;
+  }
+  .footer-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 2rem 1.5rem;
+  }
+  .footer-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-shell {
+    padding: 1rem 1rem 3rem 1rem;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  .top-nav {
+    padding: 0.8rem 1.1rem;
+    border-radius: var(--radius-lg);
+  }
+  .brand-logo {
+    height: 32px;
+  }
+  .hero-section {
+    padding: 2.75rem 0.25rem 2rem 0.25rem;
+  }
+  .hero-title {
+    font-size: 2.15rem;
+  }
+  .hero-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 1.75rem;
+  }
+  .cta-group {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .cta-group .btn {
+    width: 100%;
+    min-height: 48px;
+  }
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .feature-card {
+    padding: 1.4rem 1.25rem;
+  }
+  .footer-container {
+    padding: 2rem 1rem;
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    gap: 1.5rem;
+  }
+  .footer-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+  }
+  .tech-tags {
+    flex-wrap: wrap;
+  }
+  .footer-right {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-dark);
+  }
+  .footer-divider {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
   }
 }

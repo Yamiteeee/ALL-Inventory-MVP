@@ -3,6 +3,7 @@
 export const LANDING_UI = {
   nav: {
     brand: 'AAL Group',
+    logo: '/Logo/AAL-Logo.png',
     portalButton: 'Employee Portal',
   },
   hero: {

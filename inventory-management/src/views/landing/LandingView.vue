@@ -5,7 +5,6 @@ import { useTypewriter } from '@/animations/useTypewriter'
 import { usePageEntrance } from '@/animations/usePageEntrance'
 
 import {
-  Package,
   Layers,
   ShieldCheck,
   ShoppingCart,
@@ -38,9 +37,7 @@ const { displayedText: heroTitle, isComplete: isTypingDone } = useTypewriter(
       <!-- 1. Top Navigation -->
       <header class="top-nav">
         <div class="brand">
-          <div class="icon-disc">
-            <Package :size="16" stroke-width="2.2" />
-          </div>
+          <img :src="LANDING_UI.nav.logo" :alt="LANDING_UI.nav.brand" class="brand-logo" />
           <span class="brand-name">{{ LANDING_UI.nav.brand }}</span>
         </div>
 
